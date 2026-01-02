@@ -31,7 +31,7 @@
     
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="flex flex-col min-h-screen pb-24">
+<body class="flex flex-col min-h-screen pb-24 bg-bg text-text">
 
     <header class="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200">
         <div class="max-w-md mx-auto px-5 py-4 flex justify-between items-center">
@@ -48,7 +48,7 @@
             </div>
     </header>
 
-    <main class="max-w-md mx-auto w-full px-5 py-6">
+    <main class="max-w-md mx-auto w-full px-5 py-6 flex-grow">
 
         <div id="city-banner" class="mb-6 fade-in">
             <div class="bg-primary rounded-3xl p-6 relative overflow-hidden theme-transition shadow-lg">
@@ -56,4 +56,36 @@
                     <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-2xl theme-transition">📍</div>
                     <div>
                         <p id="ui-location-label" class="text-[10px] font-bold uppercase tracking-widest text-white/80 leading-none mb-1 theme-transition">Location</p>
-                        <h2 id="current-city-name" class="font-bold text-white text
+                        <h2 id="current-city-name" class="font-bold text-white text-3xl">Loading...</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-timeline" class="space-y-4">
+            <div id="day-content-container" class="space-y-4">
+                </div>
+        </div>
+
+        <div id="view-category" class="hidden space-y-6">
+            <div>
+                <h2 id="ui-category-view-title" class="text-2xl font-serif font-bold mb-2">Category View</h2>
+                <p id="ui-category-desc" class="text-sm text-secondary">Browse specific types of reservations and activities across the full trip.</p>
+            </div>
+            
+            <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+                <label id="ui-filter-label" class="text-[10px] font-bold uppercase tracking-widest text-secondary opacity-70 mb-2 block">Filter By</label>
+                <div class="relative">
+                    <select id="category-select" onchange="renderCategory(this.value)" class="w-full bg-gray-50 border border-gray-200 text-text text-sm rounded-xl focus:ring-primary focus:border-primary block p-3 pr-8 font-bold appearance-none">
+                        </select>
+                </div>
+            </div>
+
+            <div id="category-results" class="space-y-4">
+                </div>
+        </div>
+
+        <div id="view-memos" class="hidden space-y-6">
+            <div>
+                <h2 id="ui-memos-title" class="text-2xl font-serif font-bold mb-2">Memos</h2>
+                <p id="ui-memos-desc" class="

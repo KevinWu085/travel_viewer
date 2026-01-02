@@ -144,7 +144,8 @@
                         </div>
                         <div class="w-1/2">
                             <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Time</label>
-                            <input type="text" id="new-time" placeholder="e.g. 07:00 PM" required class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary">
+                            <input type="text" id="new-time" onblur="validateTimeField(this)" placeholder="e.g. 07:00 PM" required class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary">
+                            <p id="time-error-msg" class="hidden text-red-500 text-[10px] mt-1 font-bold ml-1"></p>
                         </div>
                     </div>
 

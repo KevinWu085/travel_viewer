@@ -50,6 +50,49 @@ function toggleLang() {
 }
 
 /**
+ * NEW: Validates the time format.
+ * Rules: Allows text (e.g. "Evening") OR specific time (e.g. "07:00 PM").
+ * Rejects numbers without AM/PM.
+ */
+function validateTimeField(inputElement) {
+    const value = inputElement.value.trim();
+    const errorMsg = document.getElementById('time-error-msg');
+    
+    // 1. If empty, it's valid (let 'required' attribute handle empty state if needed)
+    if (!value) {
+        inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
+        if(errorMsg) errorMsg.classList.add('hidden');
+        return true;
+    }
+
+    // 2. Allow "Broad Terms" (Letters only, e.g. "Evening", "TBD")
+    const isBroadTerm = /^[a-zA-Z\s]+$/.test(value);
+    if (isBroadTerm) {
+        inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
+        if(errorMsg) errorMsg.classList.add('hidden');
+        return true;
+    }
+
+    // 3. Enforce Strict Time Format (H:MM AM/PM)
+    // Checks for 1-12, colon, 00-59, space (optional), AM/PM
+    const isStrictTime = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(am|pm|AM|PM)$/i.test(value);
+    
+    if (isStrictTime) {
+        inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
+        if(errorMsg) errorMsg.classList.add('hidden');
+        return true;
+    }
+
+    // 4. INVALID: Show Error
+    inputElement.classList.add('border-red-500', 'focus:ring-red-500');
+    if (errorMsg) {
+        errorMsg.innerText = "Please use '07:00 PM' or a word like 'Evening'";
+        errorMsg.classList.remove('hidden');
+    }
+    return false;
+}
+
+/**
  * Updates all static text elements (headers, buttons, descriptions)
  * based on the currentLang.
  */
@@ -126,6 +169,11 @@ function openAddModal() {
  */
 function closeAddModal() {
     document.getElementById('add-modal').classList.add('hidden');
+    // Clear errors when closing
+    const timeInput = document.getElementById('new-time');
+    const errorMsg = document.getElementById('time-error-msg');
+    if(timeInput) timeInput.classList.remove('border-red-500', 'focus:ring-red-500');
+    if(errorMsg) errorMsg.classList.add('hidden');
 }
 
 /**
@@ -134,6 +182,15 @@ function closeAddModal() {
  */
 function handleNewEvent(e) {
     e.preventDefault(); // Stop form refresh
+
+    // --- VALIDATION CHECK ---
+    const timeInput = document.getElementById('new-time');
+    // Run validation one last time. If false, stop everything.
+    if (!validateTimeField(timeInput)) {
+        // Shake animation or focus could go here
+        timeInput.focus();
+        return; 
+    }
 
     // 1. Get Values
     const dayIdx = parseInt(document.getElementById('new-date-idx').value);

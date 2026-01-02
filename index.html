@@ -47,6 +47,7 @@
                     type="text" 
                     id="trip-title-input" 
                     value="2026 Jan London/Spain/Lisbon"
+                    oninput="document.title = this.value" 
                     onblur="handleTitleSave(this)"
                     onkeydown="if(event.key === 'Enter') this.blur()"
                     class="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary rounded px-1 -ml-1 text-[10px] font-bold uppercase tracking-widest text-primary theme-transition outline-none transition-all placeholder-primary/50"
@@ -58,6 +59,7 @@
                 <span id="lang-btn-text">繁</span>
             </button>
         </div>
+        
         <div id="date-scroll-container" class="max-w-md mx-auto px-5 py-3 overflow-x-auto no-scrollbar flex space-x-3">
         </div>
     </header>

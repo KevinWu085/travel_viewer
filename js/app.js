@@ -51,45 +51,53 @@ function toggleLang() {
 
 /**
  * NEW: Validates the time format.
- * Rules: Allows text (e.g. "Evening") OR specific time (e.g. "07:00 PM").
- * Rejects numbers without AM/PM.
+ * LOGIC: If the input has a number, it MUST follow 12-hour format with AM/PM.
+ * If no number (e.g. "Evening"), it allows it.
  */
 function validateTimeField(inputElement) {
     const value = inputElement.value.trim();
     const errorMsg = document.getElementById('time-error-msg');
     
-    // 1. If empty, it's valid (let 'required' attribute handle empty state if needed)
+    // 1. If empty, clear errors and return true (valid)
     if (!value) {
         inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
         if(errorMsg) errorMsg.classList.add('hidden');
         return true;
     }
 
-    // 2. Allow "Broad Terms" (Letters only, e.g. "Evening", "TBD")
-    const isBroadTerm = /^[a-zA-Z\s]+$/.test(value);
-    if (isBroadTerm) {
+    // 2. Check if it contains ANY number
+    const hasNumber = /\d/.test(value);
+
+    // 3. Logic Branch
+    if (!hasNumber) {
+        // CASE A: No numbers (e.g. "Evening", "Dinner") -> VALID
         inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
         if(errorMsg) errorMsg.classList.add('hidden');
         return true;
+    } else {
+        // CASE B: Has numbers -> MUST be strictly "H:MM AM/PM"
+        // Regex explains: 
+        // ^(0?[1-9]|1[0-2])  -> Starts with 1-9, 01-09, 10, 11, 12
+        // :[0-5][0-9]        -> Followed by colon and 00-59
+        // \s?                -> Optional space
+        // (am|pm|AM|PM)$     -> MUST end with AM or PM
+        const strictTimeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(am|pm|AM|PM)$/i;
+        
+        if (strictTimeRegex.test(value)) {
+            // Matches strict format -> VALID
+            inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
+            if(errorMsg) errorMsg.classList.add('hidden');
+            return true;
+        } else {
+            // Has numbers but fails strict check (e.g. "17:00", "10:00") -> INVALID
+            inputElement.classList.add('border-red-500', 'focus:ring-red-500');
+            if (errorMsg) {
+                errorMsg.innerText = "Time must include AM or PM (e.g. '5:00 PM')";
+                errorMsg.classList.remove('hidden');
+            }
+            return false;
+        }
     }
-
-    // 3. Enforce Strict Time Format (H:MM AM/PM)
-    // Checks for 1-12, colon, 00-59, space (optional), AM/PM
-    const isStrictTime = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(am|pm|AM|PM)$/i.test(value);
-    
-    if (isStrictTime) {
-        inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
-        if(errorMsg) errorMsg.classList.add('hidden');
-        return true;
-    }
-
-    // 4. INVALID: Show Error
-    inputElement.classList.add('border-red-500', 'focus:ring-red-500');
-    if (errorMsg) {
-        errorMsg.innerText = "Please use '07:00 PM' or a word like 'Evening'";
-        errorMsg.classList.remove('hidden');
-    }
-    return false;
 }
 
 /**
@@ -169,6 +177,7 @@ function openAddModal() {
  */
 function closeAddModal() {
     document.getElementById('add-modal').classList.add('hidden');
+    
     // Clear errors when closing
     const timeInput = document.getElementById('new-time');
     const errorMsg = document.getElementById('time-error-msg');
@@ -183,14 +192,17 @@ function closeAddModal() {
 function handleNewEvent(e) {
     e.preventDefault(); // Stop form refresh
 
-    // --- VALIDATION CHECK ---
+    // --- CRITICAL VALIDATION STEP ---
     const timeInput = document.getElementById('new-time');
-    // Run validation one last time. If false, stop everything.
+    
+    // We run the check manually. If it returns false, we STOP the function.
     if (!validateTimeField(timeInput)) {
-        // Shake animation or focus could go here
+        // Highlight the field again just to be sure
         timeInput.focus();
+        // Return means "Stop, do not save!"
         return; 
     }
+    // ---------------------------------
 
     // 1. Get Values
     const dayIdx = parseInt(document.getElementById('new-date-idx').value);

@@ -10,6 +10,13 @@
     
     <link rel="stylesheet" href="css/style.css">
 
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        
+        // Make these available to your app.js
+        window.firebaseImports = { initializeApp, getFirestore, doc, onSnapshot, setDoc };
+    </script>
     <script>
         tailwind.config = {
             theme: {
@@ -35,15 +42,22 @@
 
     <header class="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200">
         <div class="max-w-md mx-auto px-5 py-4 flex justify-between items-center">
-            <div>
-                <p id="ui-tour-label" class="text-[10px] font-bold uppercase tracking-widest text-primary theme-transition">2026 Jan London/Spain/Lisbon</p>
+            <div class="flex-grow mr-4">
+                <input 
+                    type="text" 
+                    id="trip-title-input" 
+                    value="2026 Jan London/Spain/Lisbon"
+                    onblur="handleTitleSave(this)"
+                    onkeydown="if(event.key === 'Enter') this.blur()"
+                    class="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary rounded px-1 -ml-1 text-[10px] font-bold uppercase tracking-widest text-primary theme-transition outline-none transition-all placeholder-primary/50"
+                    placeholder="Name your trip..."
+                >
                 <h1 id="app-header-title" class="font-serif text-xl font-bold">The Journey</h1>
             </div>
-            <button onclick="toggleLang()" class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 theme-transition text-primary font-bold text-xs select-none">
+            <button onclick="toggleLang()" class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 theme-transition text-primary font-bold text-xs select-none flex-shrink-0">
                 <span id="lang-btn-text">繁</span>
             </button>
         </div>
-        
         <div id="date-scroll-container" class="max-w-md mx-auto px-5 py-3 overflow-x-auto no-scrollbar flex space-x-3">
         </div>
     </header>
@@ -112,7 +126,7 @@
             <span class="mr-3 px-3 py-1.5 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-wide rounded-lg shadow-xl opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap">
                 Add Activity
             </span>
-            <button onclick="openAddModal()" class="w-10 h-10 bg-gray-900 text-white rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-90 transition-transform">
+            <button onclick="openAddModal()" class="w-12 h-12 bg-gray-900 text-white rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-90 transition-transform">
                 +
             </button>
         </div>

@@ -3,10 +3,13 @@ This project is inspired by Elcoolness for making easy to read and understand tr
 
 the structure of the project looks like this
 
+## 📂 Project Structure
+
+```text
 travel-app/
-├── index.html        # The main skeleton
+├── index.html        # The main entry point and HTML skeleton
 ├── css/
-│   └── style.css     # Custom animations and variables
-├── js/
-│   ├── data.js       # The hardcoded itinerary data & translations
-│   └── app.js        # The logic (event listeners, rendering functions)
+│   └── style.css     # Custom styling, animations, and CSS variables
+└── js/
+    ├── data.js       # Hardcoded itinerary data & translation strings (Edit this file to change the schedule)
+    └── app.js        # Core application logic, event listeners, and rendering functions

@@ -102,7 +102,7 @@ function updateUIStrings() {
 }
 
 // ---------------------------------------------------------
-// --- ADDING & REMOVING EVENTS (GROUPED FOR REFERENCE) ---
+// --- ADDING & REMOVING EVENTS ---
 // ---------------------------------------------------------
 
 /**
@@ -240,17 +240,16 @@ function generateEventCard(e, dayIdx, evtIdx) {
     return `
         <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start active:scale-95 transition-transform slide-up relative group">
             
-            <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-3 right-3 text-gray-300 hover:text-red-500 z-10 p-2 active:scale-90 transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-2 right-2 bg-red-50 text-red-500 rounded-full p-2 hover:bg-red-100 hover:scale-110 z-20 transition-all shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
 
             <div class="w-12 h-12 rounded-2xl ${colors[e.type] || 'bg-gray-50'} flex items-center justify-center text-xl flex-shrink-0">
                 ${icons[e.type] || '📍'}
             </div>
-            <div class="flex-grow pr-6">
-                <div class="flex justify-between items-center mb-1">
+            <div class="flex-grow pr-8"> <div class="flex justify-between items-center mb-1">
                     <span class="text-[10px] font-bold uppercase tracking-widest text-secondary opacity-50">${e.type}</span>
                     <span class="text-xs font-bold text-primary theme-transition">${e.time}</span>
                 </div>
@@ -356,16 +355,16 @@ function renderCategory(category) {
                 items.push(`
                     <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start fade-in relative group">
                         
-                        <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-3 right-3 text-gray-300 hover:text-red-500 z-10 p-2 active:scale-90 transition-all">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-2 right-2 bg-red-50 text-red-500 rounded-full p-2 hover:bg-red-100 hover:scale-110 z-20 transition-all shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
 
                         <div class="w-10 h-10 rounded-xl ${colors[category]} flex items-center justify-center text-lg flex-shrink-0">
                             ${icons[category]}
                         </div>
-                        <div class="flex-grow pr-6">
+                        <div class="flex-grow pr-8">
                             <div class="flex justify-between items-center mb-1">
                                 <p class="text-[10px] font-bold text-primary theme-transition uppercase">${currentLang === 'en' ? day.day : day.dayZh} ${day.display} • ${currentLang === 'en' ? day.city : day.cityZh}</p>
                                 <span class="text-[10px] font-bold text-secondary opacity-60">${e.time}</span>

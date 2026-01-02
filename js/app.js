@@ -1,5 +1,5 @@
 /* * APP LOGIC FILE
- * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE
+ * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + TAB SYNC
  */
 
 // --- Global State ---
@@ -45,6 +45,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Update Title (if exists in cloud)
                 if (data.tripTitle) {
                     currentTripTitle = data.tripTitle;
+                    
+                    // 👇 NEW: Update Browser Tab Title on Load 👇
+                    document.title = currentTripTitle;
+                    
+                    // Update Input Field
                     const titleInput = document.getElementById('trip-title-input');
                     if (titleInput && document.activeElement !== titleInput) {
                         titleInput.value = currentTripTitle;
@@ -90,7 +95,7 @@ async function saveToCloud() {
     try {
         await setDoc(tripDocRef, { 
             days: activeTripData,
-            tripTitle: currentTripTitle // Save the title too!
+            tripTitle: currentTripTitle 
         });
         console.log("Saved to cloud!");
     } catch (e) {
@@ -99,12 +104,16 @@ async function saveToCloud() {
 }
 
 /**
- * NEW: Handles saving the title when user clicks away
+ * Handles saving the title when user clicks away
  */
 function handleTitleSave(inputElement) {
     const newTitle = inputElement.value.trim();
     if (newTitle && newTitle !== currentTripTitle) {
         currentTripTitle = newTitle;
+        
+        // 👇 NEW: Update Browser Tab Title Immediately 👇
+        document.title = currentTripTitle;
+        
         saveToCloud(); // Push new title to phone/PC
     }
 }
@@ -151,9 +160,6 @@ function validateTimeField(inputElement) {
 function updateUIStrings() {
     const t = translations[currentLang];
     
-    // NOTE: We REMOVED the line that overwrites 'ui-tour-label' 
-    // so your custom title stays!
-
     if(document.getElementById('ui-location-label')) document.getElementById('ui-location-label').innerText = t.location;
     if(document.getElementById('lang-btn-text')) document.getElementById('lang-btn-text').innerText = t.langToggle;
     

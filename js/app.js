@@ -199,6 +199,10 @@ function handleNewEvent(e) {
     if (!validateTimeField(timeInput)) {
         // Highlight the field again just to be sure
         timeInput.focus();
+        
+        // ALERT THE USER so they can't miss it
+        alert("⚠️ Invalid Time Format!\n\nPlease use AM/PM (e.g. '7:00 PM') or a word like 'Dinner'.\n\n(24-hour time like '17:00' is not allowed.)");
+        
         // Return means "Stop, do not save!"
         return; 
     }

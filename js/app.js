@@ -1,5 +1,5 @@
 /* * APP LOGIC FILE
- * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + TAB SYNC
+ * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + TAB SYNC (ALL CAPS)
  */
 
 // --- Global State ---
@@ -46,8 +46,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (data.tripTitle) {
                     currentTripTitle = data.tripTitle;
                     
-                    // 👇 NEW: Update Browser Tab Title on Load 👇
-                    document.title = currentTripTitle;
+                    // 👇 UPDATED: Force Tab Title to ALL CAPS 👇
+                    document.title = currentTripTitle.toUpperCase();
                     
                     // Update Input Field
                     const titleInput = document.getElementById('trip-title-input');
@@ -111,8 +111,8 @@ function handleTitleSave(inputElement) {
     if (newTitle && newTitle !== currentTripTitle) {
         currentTripTitle = newTitle;
         
-        // 👇 NEW: Update Browser Tab Title Immediately 👇
-        document.title = currentTripTitle;
+        // 👇 UPDATED: Force Tab Title to ALL CAPS immediately 👇
+        document.title = currentTripTitle.toUpperCase();
         
         saveToCloud(); // Push new title to phone/PC
     }

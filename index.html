@@ -6,6 +6,10 @@
     <title>2026 Jan London/Spain/Lisbon</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/style.css">
+
     <script>
         tailwind.config = {
             theme: {
@@ -26,17 +30,13 @@
             }
         }
     </script>
-
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="flex flex-col min-h-screen pb-24">
 
     <header class="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200">
         <div class="max-w-md mx-auto px-5 py-4 flex justify-between items-center">
             <div>
-                <p id="ui-tour-label" class="text-[10px] font-bold uppercase tracking-widest text-primary theme-transition">Loading...</p>
+                <p id="ui-tour-label" class="text-[10px] font-bold uppercase tracking-widest text-primary theme-transition">2026 Jan London/Spain/Lisbon</p>
                 <h1 id="app-header-title" class="font-serif text-xl font-bold">The Journey</h1>
             </div>
             <button onclick="toggleLang()" class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 theme-transition text-primary font-bold text-xs select-none">
@@ -56,4 +56,130 @@
                     <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-2xl theme-transition">📍</div>
                     <div>
                         <p id="ui-location-label" class="text-[10px] font-bold uppercase tracking-widest text-white/80 leading-none mb-1 theme-transition">Location</p>
-                        <h2 id="current-city-name" class="font-bold text-white text
+                        <h2 id="current-city-name" class="font-bold text-white text-2xl leading-none theme-transition">London</h2>
+                    </div>
+                </div>
+                <div class="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-3xl theme-transition"></div>
+            </div>
+        </div>
+
+        <section id="view-timeline" class="slide-up space-y-5 cursor-grab active:cursor-grabbing select-none touch-pan-y">
+            <div id="day-content-container" class="space-y-4">
+                </div>
+        </section>
+
+        <section id="view-category" class="hidden fade-in space-y-6">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-300">
+                <h2 id="ui-category-view-title" class="font-serif text-2xl font-bold mb-3">Category View</h2>
+                <p id="ui-category-desc" class="text-secondary text-xs leading-relaxed mb-5">Browse specific types of reservations and activities across the full trip.</p>
+                
+                <div class="relative">
+                    <label id="ui-filter-label" class="text-[10px] font-bold uppercase text-primary tracking-widest block mb-2 px-1 theme-transition">Filter By</label>
+                    <select id="category-select" onchange="renderCategory(this.value)" class="w-full bg-bg border border-gray-300 rounded-xl px-4 py-3 text-sm font-bold text-text focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all theme-transition">
+                        </select>
+                </div>
+            </div>
+
+            <div id="category-results" class="space-y-4">
+                </div>
+        </section>
+
+        <section id="view-memos" class="hidden fade-in space-y-6">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-300">
+                <h2 id="ui-memos-title" class="font-serif text-2xl font-bold mb-2">Group Memos</h2>
+                <p id="ui-memos-desc" class="text-secondary text-xs mb-6">Shared space for notes and group reminders.</p>
+                
+                <div class="bg-bg border border-gray-300 rounded-2xl p-5 mb-4">
+                    <div class="flex items-center space-x-4 mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-lg">📄</div>
+                        <div class="flex-grow">
+                            <h4 id="ui-gdoc-title" class="font-bold text-sm">Shared Google Doc</h4>
+                            <p id="ui-gdoc-sub" class="text-[10px] text-secondary">Real-time collaborative notes</p>
+                        </div>
+                        <a id="ui-gdoc-btn" href="https://docs.google.com/document/u/0/" target="_blank" class="bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-lg shadow-md active:scale-95 transition-all uppercase theme-transition">Open</a>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <h4 id="ui-reminders-label" class="text-[10px] font-bold uppercase tracking-widest text-primary px-1 theme-transition">📌 Reminders</h4>
+                    <div id="ui-reminders-list" class="bg-surface border border-gray-300 rounded-2xl p-4 shadow-sm">
+                        </div>
+                </div>
+            </div>
+        </section>
+
+        <button onclick="openAddModal()" class="fixed bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl flex items-center justify-center text-3xl z-40 active:scale-90 transition-transform">
+            +
+        </button>
+
+        <div id="add-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center fade-in">
+            <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl slide-up">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold font-serif">Add New Event</h3>
+                    <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                
+                <form id="add-event-form" onsubmit="handleNewEvent(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Date</label>
+                        <select id="new-date-idx" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-bold appearance-none focus:outline-none focus:ring-2 focus:ring-primary">
+                            </select>
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <div class="w-1/2">
+                            <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Type</label>
+                            <select id="new-type" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-bold appearance-none">
+                                <option value="dining">🍽️ Meal</option>
+                                <option value="activity">🎨 Activity</option>
+                                <option value="flight">✈️ Flight</option>
+                                <option value="hotel">🏨 Hotel</option>
+                                <option value="transfer">🚙 Transfer</option>
+                            </select>
+                        </div>
+                        <div class="w-1/2">
+                            <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Time</label>
+                            <input type="text" id="new-time" placeholder="e.g. 07:00 PM" required class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Title</label>
+                        <input type="text" id="new-title" placeholder="e.g. Dinner at Savoy" required class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Details</label>
+                        <input type="text" id="new-details" placeholder="e.g. Reservation confirmed" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+
+                    <button type="submit" class="w-full bg-gray-900 text-white font-bold py-4 rounded-xl shadow-lg mt-4 active:scale-95 transition-transform">
+                        Save Event
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 z-50">
+        <div class="max-w-md mx-auto flex justify-around items-center px-4 py-3">
+            <button onclick="switchTab('timeline')" id="nav-timeline" class="flex flex-col items-center space-y-1 active-nav transition-all theme-transition">
+                <div class="text-2xl">🗓️</div>
+                <span id="ui-nav-journey" class="text-[10px] font-bold uppercase tracking-tighter">Journey</span>
+            </button>
+            <button onclick="switchTab('category')" id="nav-category" class="flex flex-col items-center space-y-1 text-gray-400 transition-all theme-transition">
+                <div class="text-2xl">📂</div>
+                <span id="ui-nav-category" class="text-[10px] font-bold uppercase tracking-tighter">Category</span>
+            </button>
+            <button onclick="switchTab('memos')" id="nav-memos" class="flex flex-col items-center space-y-1 text-gray-400 transition-all theme-transition">
+                <div class="text-2xl">✍️</div>
+                <span id="ui-nav-memos" class="text-[10px] font-bold uppercase tracking-tighter">Memos</span>
+            </button>
+        </div>
+    </nav>
+
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

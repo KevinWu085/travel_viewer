@@ -4,12 +4,17 @@
  * - Switching languages
  * - Swipe navigation
  * - Tab switching
+ * - Adding new events (NEW)
  */
 
 // --- Global State ---
 let currentDayIndex = 0;
 let currentLang = 'en';
 let currentTab = 'timeline';
+
+// --- Local Storage Initialization ---
+// Try to load saved data, otherwise fallback to the hardcoded 'tripData' from data.js
+let activeTripData = JSON.parse(localStorage.getItem('myTripData')) || tripData;
 
 // --- Touch State for Swiping ---
 let touchStartX, touchStartY, touchEndX, touchEndY;
@@ -52,31 +57,31 @@ function updateUIStrings() {
     const t = translations[currentLang];
     
     // Header & Info
-    document.getElementById('ui-tour-label').innerText = t.tourLabel;
-    document.getElementById('ui-location-label').innerText = t.location;
-    document.getElementById('lang-btn-text').innerText = t.langToggle;
+    if(document.getElementById('ui-tour-label')) document.getElementById('ui-tour-label').innerText = t.tourLabel;
+    if(document.getElementById('ui-location-label')) document.getElementById('ui-location-label').innerText = t.location;
+    if(document.getElementById('lang-btn-text')) document.getElementById('lang-btn-text').innerText = t.langToggle;
 
     // View Titles & Descriptions
-    document.getElementById('ui-category-view-title').innerText = t.categoryView;
-    document.getElementById('ui-category-desc').innerText = t.categoryDesc;
-    document.getElementById('ui-filter-label').innerText = t.filterBy;
+    if(document.getElementById('ui-category-view-title')) document.getElementById('ui-category-view-title').innerText = t.categoryView;
+    if(document.getElementById('ui-category-desc')) document.getElementById('ui-category-desc').innerText = t.categoryDesc;
+    if(document.getElementById('ui-filter-label')) document.getElementById('ui-filter-label').innerText = t.filterBy;
     
-    document.getElementById('ui-memos-title').innerText = t.memos;
-    document.getElementById('ui-memos-desc').innerText = t.memosDesc;
+    if(document.getElementById('ui-memos-title')) document.getElementById('ui-memos-title').innerText = t.memos;
+    if(document.getElementById('ui-memos-desc')) document.getElementById('ui-memos-desc').innerText = t.memosDesc;
     
     // Google Doc Section
-    document.getElementById('ui-gdoc-title').innerText = t.gdocTitle;
-    document.getElementById('ui-gdoc-sub').innerText = t.gdocSub;
-    document.getElementById('ui-gdoc-btn').innerText = t.open;
+    if(document.getElementById('ui-gdoc-title')) document.getElementById('ui-gdoc-title').innerText = t.gdocTitle;
+    if(document.getElementById('ui-gdoc-sub')) document.getElementById('ui-gdoc-sub').innerText = t.gdocSub;
+    if(document.getElementById('ui-gdoc-btn')) document.getElementById('ui-gdoc-btn').innerText = t.open;
     
     // Reminders Section
-    document.getElementById('ui-reminders-label').innerText = t.reminders;
-    document.getElementById('ui-reminders-list').innerHTML = t.remindersContent;
+    if(document.getElementById('ui-reminders-label')) document.getElementById('ui-reminders-label').innerText = t.reminders;
+    if(document.getElementById('ui-reminders-list')) document.getElementById('ui-reminders-list').innerHTML = t.remindersContent;
     
     // Navigation Bar Labels
-    document.getElementById('ui-nav-journey').innerText = t.journey;
-    document.getElementById('ui-nav-category').innerText = t.category;
-    document.getElementById('ui-nav-memos').innerText = t.memos;
+    if(document.getElementById('ui-nav-journey')) document.getElementById('ui-nav-journey').innerText = t.journey;
+    if(document.getElementById('ui-nav-category')) document.getElementById('ui-nav-category').innerText = t.category;
+    if(document.getElementById('ui-nav-memos')) document.getElementById('ui-nav-memos').innerText = t.memos;
 
     // Main App Header Title logic
     const headerTitle = document.getElementById('app-header-title');
@@ -96,6 +101,70 @@ function updateUIStrings() {
     sel.value = currentVal;
 }
 
+// --- Logic for Adding Events (NEW) ---
+
+function openAddModal() {
+    const modal = document.getElementById('add-modal');
+    modal.classList.remove('hidden');
+    
+    // Populate the date dropdown with active trip dates
+    const dateSelect = document.getElementById('new-date-idx');
+    dateSelect.innerHTML = activeTripData.map((d, i) => `
+        <option value="${i}" ${i === currentDayIndex ? 'selected' : ''}>
+            ${d.display} - ${d.city}
+        </option>
+    `).join('');
+}
+
+function closeAddModal() {
+    document.getElementById('add-modal').classList.add('hidden');
+}
+
+function handleNewEvent(e) {
+    e.preventDefault(); // Stop form refresh
+
+    // 1. Get Values
+    const dayIdx = parseInt(document.getElementById('new-date-idx').value);
+    const type = document.getElementById('new-type').value;
+    const time = document.getElementById('new-time').value;
+    const title = document.getElementById('new-title').value;
+    const details = document.getElementById('new-details').value;
+
+    // 2. Create Event Object
+    const newEvent = {
+        type: type,
+        title: title,
+        titleZh: title, // Fallback for Chinese
+        time: time,
+        details: details,
+        sub: "User Added",
+        mapUrl: "" // Optional
+    };
+
+    // 3. Add to Data
+    activeTripData[dayIdx].events.push(newEvent);
+
+    // 4. Save to Local Storage (Persist Data)
+    localStorage.setItem('myTripData', JSON.stringify(activeTripData));
+
+    // 5. Refresh UI
+    closeAddModal();
+    document.getElementById('add-event-form').reset();
+    
+    // If we added to the current day, re-render immediately
+    if (dayIdx === currentDayIndex) {
+        showDay(currentDayIndex);
+    } else {
+        // If added to another day, jump to that day
+        showDay(dayIdx);
+    }
+    
+    // Re-render categories if open
+    if (currentTab === 'category') {
+        renderCategory(document.getElementById('category-select').value);
+    }
+}
+
 // --- Rendering Functions ---
 
 /**
@@ -103,7 +172,7 @@ function updateUIStrings() {
  */
 function renderDateSelector() {
     const container = document.getElementById('date-scroll-container');
-    container.innerHTML = tripData.map((d, i) => `
+    container.innerHTML = activeTripData.map((d, i) => `
         <button onclick="showDay(${i})" id="date-pill-${i}" 
             class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition">
             <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60">${currentLang === 'en' ? d.day : d.dayZh}</div>
@@ -137,7 +206,7 @@ function generateEventCard(e) {
                     <span class="text-[10px] font-bold uppercase tracking-widest text-secondary opacity-50">${e.type}</span>
                     <span class="text-xs font-bold text-primary theme-transition">${e.time}</span>
                 </div>
-                <h3 class="font-bold text-lg leading-tight">${currentLang === 'en' ? e.title : e.titleZh}</h3>
+                <h3 class="font-bold text-lg leading-tight">${currentLang === 'en' ? e.title : (e.titleZh || e.title)}</h3>
                 <p class="text-xs text-secondary mt-1">${e.details}</p>
                 <div class="flex flex-wrap items-center gap-2">
                     ${e.sub ? `<div class="mt-3 text-[10px] py-1 px-2 bg-gray-50 inline-block rounded-md border border-gray-300 font-bold text-secondary uppercase">${e.sub}</div>` : ''}
@@ -162,8 +231,8 @@ function showDay(idx) {
         activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
     
-    // Update Content
-    const day = tripData[idx];
+    // Update Content using ACTIVE data
+    const day = activeTripData[idx];
     updateTheme(day.city);
     document.getElementById('current-city-name').innerText = currentLang === 'en' ? day.city : day.cityZh;
     
@@ -181,8 +250,12 @@ function switchTab(tabId) {
     // Toggle Visibility
     sections.forEach(id => {
         document.getElementById(`view-${id}`).classList.toggle('hidden', id !== tabId);
-        document.getElementById(`nav-${id}`).classList.toggle('active-nav', id === tabId);
-        document.getElementById(`nav-${id}`).classList.toggle('text-gray-400', id !== tabId);
+        
+        const nav = document.getElementById(`nav-${id}`);
+        if(nav) {
+            nav.classList.toggle('active-nav', id === tabId);
+            nav.classList.toggle('text-gray-400', id !== tabId);
+        }
     });
     
     // Update Header and Global UI
@@ -195,7 +268,7 @@ function switchTab(tabId) {
         header.innerText = t.journey; 
         scroller.classList.remove('hidden'); 
         banner.classList.remove('hidden');
-        updateTheme(tripData[currentDayIndex].city);
+        updateTheme(activeTripData[currentDayIndex].city);
     } else {
         scroller.classList.add('hidden');
         banner.classList.add('hidden');
@@ -212,13 +285,13 @@ function switchTab(tabId) {
 }
 
 /**
- * Renders the filtered Category view (e.g., showing only Flights).
+ * Renders the filtered Category view.
  */
 function renderCategory(category) {
     const container = document.getElementById('category-results');
     const items = [];
     
-    tripData.forEach(day => {
+    activeTripData.forEach(day => {
         day.events.forEach(e => {
             if (e.type === category) {
                 const t = translations[currentLang];
@@ -239,7 +312,7 @@ function renderCategory(category) {
                                 <p class="text-[10px] font-bold text-primary theme-transition uppercase">${currentLang === 'en' ? day.day : day.dayZh} ${day.display} • ${currentLang === 'en' ? day.city : day.cityZh}</p>
                                 <span class="text-[10px] font-bold text-secondary opacity-60">${e.time}</span>
                             </div>
-                            <h4 class="font-bold text-sm leading-tight">${currentLang === 'en' ? e.title : e.titleZh}</h4>
+                            <h4 class="font-bold text-sm leading-tight">${currentLang === 'en' ? e.title : (e.titleZh || e.title)}</h4>
                             <p class="text-[11px] text-secondary mt-1">${e.details}</p>
                             <div class="flex flex-wrap items-center gap-2">
                                 ${e.sub ? `<p class="text-[10px] text-primary theme-transition mt-1 font-bold">${e.sub}</p>` : ''}
@@ -266,7 +339,7 @@ function handleSwipe() {
     if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 50) {
         if (xDiff < 0) { 
             // Swipe Left -> Next Day
-            if (currentDayIndex < tripData.length - 1) showDay(currentDayIndex + 1); 
+            if (currentDayIndex < activeTripData.length - 1) showDay(currentDayIndex + 1); 
         } else { 
             // Swipe Right -> Previous Day
             if (currentDayIndex > 0) showDay(currentDayIndex - 1); 

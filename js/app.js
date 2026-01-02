@@ -137,7 +137,7 @@ function handleNewEvent(e) {
         titleZh: title, // Fallback for Chinese
         time: time,
         details: details,
-        sub: "", // FIX: Empty string prevents new tasks from having the label
+        sub: "", // REMOVED "User Added". Left empty.
         mapUrl: "" 
     };
 
@@ -196,8 +196,8 @@ function generateEventCard(e) {
         </a>
     ` : '';
 
-    // FIX: Check if sub exists AND is NOT "User Added". If it is "User Added", we treat it as empty.
-    const showSub = e.sub && e.sub !== "User Added";
+    // LOGIC FIX: Ignore "User Added" string from old data
+    const shouldRenderSub = e.sub && e.sub !== "User Added";
 
     return `
         <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start active:scale-95 transition-transform slide-up">
@@ -212,7 +212,7 @@ function generateEventCard(e) {
                 <h3 class="font-bold text-lg leading-tight">${currentLang === 'en' ? e.title : (e.titleZh || e.title)}</h3>
                 <p class="text-xs text-secondary mt-1">${e.details}</p>
                 <div class="flex flex-wrap items-center gap-2">
-                    ${showSub ? `<div class="mt-3 text-[10px] py-1 px-2 bg-gray-50 inline-block rounded-md border border-gray-300 font-bold text-secondary uppercase">${e.sub}</div>` : ''}
+                    ${shouldRenderSub ? `<div class="mt-3 text-[10px] py-1 px-2 bg-gray-50 inline-block rounded-md border border-gray-300 font-bold text-secondary uppercase">${e.sub}</div>` : ''}
                     ${mapButton}
                 </div>
             </div>
@@ -304,9 +304,9 @@ function renderCategory(category) {
                         <span class="text-[9px]">📍</span>
                     </a>
                 ` : '';
-                
-                // FIX: Also hide "User Added" in category view
-                const showSub = e.sub && e.sub !== "User Added";
+
+                // LOGIC FIX: Ignore "User Added" string here too
+                const shouldRenderSub = e.sub && e.sub !== "User Added";
 
                 items.push(`
                     <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start fade-in">
@@ -321,7 +321,7 @@ function renderCategory(category) {
                             <h4 class="font-bold text-sm leading-tight">${currentLang === 'en' ? e.title : (e.titleZh || e.title)}</h4>
                             <p class="text-[11px] text-secondary mt-1">${e.details}</p>
                             <div class="flex flex-wrap items-center gap-2">
-                                ${showSub ? `<p class="text-[10px] text-primary theme-transition mt-1 font-bold">${e.sub}</p>` : ''}
+                                ${shouldRenderSub ? `<p class="text-[10px] text-primary theme-transition mt-1 font-bold">${e.sub}</p>` : ''}
                                 ${mapBtn}
                             </div>
                         </div>

@@ -108,9 +108,14 @@
             </div>
         </section>
 
-        <button onclick="openAddModal()" class="fixed bottom-24 right-5 w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl flex items-center justify-center text-3xl z-40 active:scale-90 transition-transform">
-            +
-        </button>
+        <div class="fixed bottom-24 right-5 z-40 group flex items-center justify-end">
+            <span class="mr-3 px-3 py-1.5 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-wide rounded-lg shadow-xl opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap">
+                Add Activity
+            </span>
+            <button onclick="openAddModal()" class="w-14 h-14 bg-gray-900 text-white rounded-full shadow-xl flex items-center justify-center text-3xl active:scale-90 transition-transform">
+                +
+            </button>
+        </div>
 
         <div id="add-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center fade-in">
             <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl slide-up">

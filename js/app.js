@@ -4,7 +4,7 @@
  * - Switching languages
  * - Swipe navigation
  * - Tab switching
- * - Adding new events (NEW)
+ * - Adding new events
  */
 
 // --- Global State ---
@@ -101,7 +101,7 @@ function updateUIStrings() {
     sel.value = currentVal;
 }
 
-// --- Logic for Adding Events (NEW) ---
+// --- Logic for Adding Events ---
 
 function openAddModal() {
     const modal = document.getElementById('add-modal');
@@ -137,8 +137,8 @@ function handleNewEvent(e) {
         titleZh: title, // Fallback for Chinese
         time: time,
         details: details,
-        sub: "User Added",
-        mapUrl: "" // Optional
+        sub: "", // REMOVED "User Added" text. Empty string means no badge will show.
+        mapUrl: "" 
     };
 
     // 3. Add to Data

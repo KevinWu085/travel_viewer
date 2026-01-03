@@ -1,5 +1,5 @@
 /* * APP LOGIC FILE
- * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + TAB SYNC (ALL CAPS)
+ * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + ALL CAPS TAB + NEW DATES
  */
 
 // --- Global State ---
@@ -7,7 +7,7 @@ let currentDayIndex = 0;
 let currentLang = 'en';
 let currentTab = 'timeline';
 let activeTripData = tripData; 
-let currentTripTitle = "2026 Jan London/Spain/Lisbon"; // Default title
+let currentTripTitle = "2026 Jan London/Spain/Lisbon"; 
 
 // --- 👇 FIREBASE SETUP (YOUR KEYS) 👇 ---
 const firebaseConfig = {
@@ -39,29 +39,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const data = docSnapshot.data();
                 console.log("Cloud update received");
                 
-                // Update Events
                 if (data.days) activeTripData = data.days;
                 
-                // Update Title (if exists in cloud)
                 if (data.tripTitle) {
                     currentTripTitle = data.tripTitle;
-                    
-                    // 👇 UPDATED: Force Tab Title to ALL CAPS 👇
                     document.title = currentTripTitle.toUpperCase();
-                    
-                    // Update Input Field
                     const titleInput = document.getElementById('trip-title-input');
                     if (titleInput && document.activeElement !== titleInput) {
                         titleInput.value = currentTripTitle;
                     }
                 }
                 
-                // Refresh UI
                 renderDateSelector();
                 if (currentTab === 'timeline') showDay(currentDayIndex);
                 if (currentTab === 'category') renderCategory(document.getElementById('category-select').value);
             } else {
-                // If cloud is empty, save default data
                 saveToCloud();
             }
         });
@@ -70,7 +62,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateUIStrings();
     renderDateSelector();
     
-    // Add touch listeners
     const timeline = document.getElementById('view-timeline');
     if (timeline) {
         timeline.addEventListener('touchstart', e => { 
@@ -85,40 +76,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-/**
- * SAVES Title and Events to Cloud
- */
 async function saveToCloud() {
     if (!tripDocRef || !window.firebaseImports) return;
     const { setDoc } = window.firebaseImports;
-    
     try {
         await setDoc(tripDocRef, { 
             days: activeTripData,
             tripTitle: currentTripTitle 
         });
-        console.log("Saved to cloud!");
     } catch (e) {
         console.error("Error saving:", e);
     }
 }
 
-/**
- * Handles saving the title when user clicks away
- */
 function handleTitleSave(inputElement) {
     const newTitle = inputElement.value.trim();
     if (newTitle && newTitle !== currentTripTitle) {
         currentTripTitle = newTitle;
-        
-        // 👇 UPDATED: Force Tab Title to ALL CAPS immediately 👇
         document.title = currentTripTitle.toUpperCase();
-        
-        saveToCloud(); // Push new title to phone/PC
+        saveToCloud();
     }
 }
 
-// --- Standard App Logic Below ---
+// --- Helper: Date Formatting for New Days ---
+const daysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const daysZh = ["日", "一", "二", "三", "四", "五", "六"];
+const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function getDayData(dateStr) {
+    // dateStr is "YYYY-MM-DD"
+    // Create date as Noon UTC to avoid timezone rollback
+    const parts = dateStr.split('-');
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    
+    const dayIdx = d.getDay();
+    const dateNum = d.getDate();
+    const monthIdx = d.getMonth();
+
+    return {
+        display: `${String(dateNum).padStart(2, '0')} ${monthsEn[monthIdx]}`,
+        day: daysEn[dayIdx],
+        dayZh: daysZh[dayIdx]
+    };
+}
+
+// --- Standard App Logic ---
 
 let touchStartX, touchStartY, touchEndX, touchEndY;
 
@@ -163,7 +165,6 @@ function updateUIStrings() {
     if(document.getElementById('ui-location-label')) document.getElementById('ui-location-label').innerText = t.location;
     if(document.getElementById('lang-btn-text')) document.getElementById('lang-btn-text').innerText = t.langToggle;
     
-    // View Titles
     if(document.getElementById('ui-category-view-title')) document.getElementById('ui-category-view-title').innerText = t.categoryView;
     if(document.getElementById('ui-category-desc')) document.getElementById('ui-category-desc').innerText = t.categoryDesc;
     if(document.getElementById('ui-filter-label')) document.getElementById('ui-filter-label').innerText = t.filterBy;
@@ -202,12 +203,13 @@ function updateUIStrings() {
 function openAddModal() {
     const modal = document.getElementById('add-modal');
     modal.classList.remove('hidden');
-    const dateSelect = document.getElementById('new-date-idx');
-    dateSelect.innerHTML = activeTripData.map((d, i) => `
-        <option value="${i}" ${i === currentDayIndex ? 'selected' : ''}>
-            ${d.display} - ${d.city}
-        </option>
-    `).join('');
+    
+    // Set default date to current active day
+    const currentDay = activeTripData[currentDayIndex];
+    if (currentDay) {
+        document.getElementById('new-date-picker').value = currentDay.date;
+        document.getElementById('new-city').value = currentDay.city;
+    }
 }
 
 function closeAddModal() {
@@ -225,7 +227,9 @@ function handleNewEvent(e) {
         return; 
     }
 
-    const dayIdx = parseInt(document.getElementById('new-date-idx').value);
+    // Get Form Data
+    const inputDate = document.getElementById('new-date-picker').value;
+    const inputCity = document.getElementById('new-city').value;
     const type = document.getElementById('new-type').value;
     const time = document.getElementById('new-time').value;
     const title = document.getElementById('new-title').value;
@@ -241,14 +245,39 @@ function handleNewEvent(e) {
         mapUrl: "" 
     };
 
-    activeTripData[dayIdx].events.push(newEvent);
-    saveToCloud();
+    // LOGIC: Check if date exists
+    let targetDayIndex = activeTripData.findIndex(d => d.date === inputDate);
 
+    if (targetDayIndex !== -1) {
+        // CASE 1: Date Exists -> Add to it
+        activeTripData[targetDayIndex].events.push(newEvent);
+    } else {
+        // CASE 2: New Date -> Create new day
+        const dayInfo = getDayData(inputDate);
+        const newDay = {
+            date: inputDate,
+            display: dayInfo.display,
+            day: dayInfo.day,
+            dayZh: dayInfo.dayZh,
+            city: inputCity,
+            cityZh: inputCity, // Fallback for Chinese
+            events: [newEvent]
+        };
+        activeTripData.push(newDay);
+        
+        // Sort chronologically
+        activeTripData.sort((a, b) => a.date.localeCompare(b.date));
+        
+        // Find new index after sort
+        targetDayIndex = activeTripData.findIndex(d => d.date === inputDate);
+    }
+
+    saveToCloud();
     closeAddModal();
     document.getElementById('add-event-form').reset();
     
-    if (dayIdx === currentDayIndex) showDay(currentDayIndex);
-    else showDay(dayIdx);
+    // Jump to the day we just modified/added
+    showDay(targetDayIndex);
 }
 
 function deleteEvent(event, dayIdx, evtIdx) {
@@ -308,6 +337,10 @@ function generateEventCard(e, dayIdx, evtIdx) {
 }
 
 function showDay(idx) {
+    // Safety check if index is out of bounds (can happen after sorting/deleting)
+    if (idx >= activeTripData.length) idx = activeTripData.length - 1;
+    if (idx < 0) idx = 0;
+    
     currentDayIndex = idx;
     document.querySelectorAll('.date-pill').forEach(p => p.classList.remove('date-pill-active'));
     const activeBtn = document.getElementById(`date-pill-${idx}`);

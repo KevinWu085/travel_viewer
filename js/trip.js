@@ -69,27 +69,28 @@ function initTripView() {
 
 // --- 👇 FIXED FUNCTION: Removed extra manual emojis ---
 function updateUIStrings() {
+    // Safety check: ensure translations exist
     const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
     
     const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
     const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
 
     // Update Text Labels
-    setTxt('ui-location-label', t.location);
-    setTxt('lang-btn-text', t.langToggle);
-    setTxt('ui-category-view-title', t.categoryView);
-    setTxt('ui-category-desc', t.categoryDesc);
-    setTxt('ui-filter-label', t.filterBy);
-    setTxt('ui-memos-title', t.memos);
-    setTxt('ui-memos-desc', t.memosDesc);
-    setTxt('ui-gdoc-title', t.gdocTitle);
-    setTxt('ui-gdoc-sub', t.gdocSub);
-    setTxt('ui-gdoc-btn', t.open);
-    setTxt('ui-reminders-label', t.reminders);
-    setHtml('ui-reminders-list', t.remindersContent);
-    setTxt('ui-nav-journey', t.journey);
-    setTxt('ui-nav-category', t.category);
-    setTxt('ui-nav-memos', t.memos);
+    setTxt('ui-location-label', t.location || 'Location');
+    setTxt('lang-btn-text', t.langToggle || 'EN');
+    setTxt('ui-category-view-title', t.categoryView || 'Category View');
+    setTxt('ui-category-desc', t.categoryDesc || 'Browse specific types of reservations.');
+    setTxt('ui-filter-label', t.filterBy || 'Filter By');
+    setTxt('ui-memos-title', t.memos || 'Memos');
+    setTxt('ui-memos-desc', t.memosDesc || 'Shared space.');
+    setTxt('ui-gdoc-title', t.gdocTitle || 'Shared Doc');
+    setTxt('ui-gdoc-sub', t.gdocSub || 'Notes');
+    setTxt('ui-gdoc-btn', t.open || 'Open');
+    setTxt('ui-reminders-label', t.reminders || 'Reminders');
+    setHtml('ui-reminders-list', t.remindersContent || '');
+    setTxt('ui-nav-journey', t.journey || 'Journey');
+    setTxt('ui-nav-category', t.category || 'Category');
+    setTxt('ui-nav-memos', t.memos || 'Memos');
 
     // Update Header Title based on current tab
     const headerTitle = document.getElementById('app-header-title');
@@ -103,6 +104,7 @@ function updateUIStrings() {
     const sel = document.getElementById('category-select');
     if (sel) {
         const currentVal = sel.value || 'flight';
+        // Check if translations exist, otherwise fallback to English
         const f = t.catFlights || 'Flights';
         const h = t.catHotels || 'Hotels';
         const m = t.catMeals || 'Dining';

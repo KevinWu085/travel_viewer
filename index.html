@@ -15,8 +15,10 @@
         // Added: collection, addDoc, getDocs, deleteDoc
         import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         
+        // Make these available to your app.js
         window.firebaseImports = { initializeApp, getFirestore, doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc };
     </script>
+    
     <script>
         tailwind.config = {
             theme: {

@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadDashboard();
     } else {
         console.warn("Firebase imports timed out. Loading default view.");
+        // Fallback if offline
         if (typeof tripData !== 'undefined') activeTripData = tripData;
         document.getElementById('dashboard-view').classList.add('hidden');
         document.getElementById('trip-view').classList.remove('hidden');
@@ -77,6 +78,13 @@ async function loadDashboard() {
     }
 
     const container = document.getElementById('trips-list-container');
+    
+    // Safety Check: Did user update index.html?
+    if (!window.firebaseImports.collection || !window.firebaseImports.getDocs) {
+        container.innerHTML = `<div class="text-red-500 text-center font-bold p-5 border border-red-200 bg-red-50 rounded-xl">⚠️ Critical Error: Missing Imports<br><span class="text-xs font-normal text-black">Please update your index.html file to include 'collection' and 'getDocs' in the import statement.</span></div>`;
+        return;
+    }
+
     const { collection, getDocs } = window.firebaseImports;
     
     try {
@@ -86,13 +94,13 @@ async function loadDashboard() {
             trips.push({ id: doc.id, ...doc.data() });
         });
 
-        // 👇 UPDATED: Show Import Button if empty
+        // 👇 IF EMPTY: Show Import Button
         if (trips.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-300">
                     <p class="text-gray-400 mb-4 text-sm font-bold uppercase tracking-wider">No cloud trips found</p>
-                    <button onclick="importDefaultTrip()" class="bg-primary/10 text-primary px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wide hover:bg-primary/20 transition-all">
-                        Import "London 2026" Data
+                    <button onclick="importDefaultTrip()" class="bg-gray-900 text-white px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wide shadow-lg hover:scale-105 transition-all">
+                        Import Default Trip (London 2026)
                     </button>
                 </div>`;
             return;
@@ -118,7 +126,7 @@ async function loadDashboard() {
 
     } catch (e) {
         console.error("Error loading trips:", e);
-        container.innerHTML = `<div class="text-red-500 text-center">Error loading trips.</div>`;
+        container.innerHTML = `<div class="text-red-500 text-center">Error loading trips: ${e.message}</div>`;
     }
 }
 
@@ -126,9 +134,8 @@ async function loadDashboard() {
 async function importDefaultTrip() {
     const { collection, addDoc } = window.firebaseImports;
     
-    // Check if tripData exists (from data.js)
     if (typeof tripData === 'undefined') {
-        alert("Error: data.js not loaded properly.");
+        alert("Error: tripData not found. Make sure data.js is loaded.");
         return;
     }
     
@@ -141,8 +148,7 @@ async function importDefaultTrip() {
             days: tripData 
         });
         
-        // Reload dashboard to see the new card
-        loadDashboard();
+        loadDashboard(); // Refresh to show the new card
     } catch(e) {
         console.error(e);
         alert("Error importing: " + e.message);

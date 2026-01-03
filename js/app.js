@@ -1,34 +1,52 @@
 // js/app.js
 import { initFirebase } from './firebase-config.js';
 
-// 👇 REMOVED openTrip from here
-import { loadDashboard, createNewTrip, deleteTrip, handleSearch, changeSort, importDefaultTrip } from './dashboard.js';
+// Dashboard Logic
+import { 
+    loadDashboard, 
+    createNewTrip, 
+    deleteTrip, 
+    handleSearch, 
+    changeSort, 
+    importDefaultTrip 
+} from './dashboard.js';
 
-// 👇 ADDED openTrip here
+// Trip Details Logic
 import { 
     openTrip, 
-    handleNewEvent, deleteEvent, deleteCurrentDay, 
-    handleTitleSave, switchTab, toggleLang, showDay,
-    openAddModal, closeAddModal 
+    handleNewEvent, 
+    deleteEvent, 
+    deleteCurrentDay, 
+    handleTitleSave, 
+    switchTab, 
+    toggleLang, 
+    showDay,
+    openAddModal, 
+    closeAddModal, 
+    renderCategory 
 } from './trip.js';
 
+// Utilities
 import { validateTimeField } from './utils.js';
 
-// Initialize
+// Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
     await initFirebase();
     loadDashboard();
 });
 
-// Expose functions to Window so HTML onclick="" works
+// --- Expose functions to Window so HTML onclick="" works ---
+
+// Dashboard Actions
 window.createNewTrip = createNewTrip;
 window.deleteTrip = deleteTrip;
-window.openTrip = openTrip; // Now correctly imported from trip.js
+window.openTrip = openTrip; 
 window.handleSearch = handleSearch;
 window.changeSort = changeSort;
 window.importDefaultTrip = importDefaultTrip;
 window.backToDashboard = loadDashboard;
 
+// Trip Actions
 window.handleNewEvent = handleNewEvent;
 window.deleteEvent = deleteEvent;
 window.deleteCurrentDay = deleteCurrentDay;
@@ -39,3 +57,6 @@ window.showDay = showDay;
 window.openAddModal = openAddModal;
 window.closeAddModal = closeAddModal;
 window.validateTimeField = validateTimeField;
+
+// Category View Logic
+window.renderCategory = renderCategory;

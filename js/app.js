@@ -1,15 +1,17 @@
 /* * APP LOGIC FILE
- * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + TAB SYNC (ALL CAPS)
+ * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + DASHBOARD
  */
 
 // --- Global State ---
 let currentDayIndex = 0;
 let currentLang = 'en';
 let currentTab = 'timeline';
-let activeTripData = tripData; 
-let currentTripTitle = "2026 Jan London/Spain/Lisbon"; // Default title
+let activeTripData = []; // Starts empty, loads on selection
+let currentTripTitle = "Trip"; 
+let currentTripId = null; // Track which trip is active
+let unsubscribeTripListener = null; // To stop listening when switching trips
 
-// --- 👇 FIREBASE SETUP (YOUR KEYS) 👇 ---
+// --- 👇 FIREBASE CONFIG 👇 ---
 const firebaseConfig = {
     apiKey: "AIzaSyCdSkde68rfs8bRD7YTnyDbaFaqnt37dww",
     authDomain: "travelviewer-ddcad.firebaseapp.com",
@@ -20,105 +22,214 @@ const firebaseConfig = {
     measurementId: "G-3CYPNNPCB7"
 };
 
-// Initialize Firebase
+// Initialize Firebase Variables
 let db;
-let tripDocRef;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log("App Loaded. Initializing...");
+
     // 1. Initialize Firebase
     if (window.firebaseImports) {
-        const { initializeApp, getFirestore, doc, onSnapshot } = window.firebaseImports;
+        const { initializeApp, getFirestore } = window.firebaseImports;
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         
-        tripDocRef = doc(db, "trips", "mainTrip");
-
-        // 2. LISTEN for Cloud Updates
-        onSnapshot(tripDocRef, (docSnapshot) => {
-            if (docSnapshot.exists()) {
-                const data = docSnapshot.data();
-                console.log("Cloud update received");
-                
-                // Update Events
-                if (data.days) activeTripData = data.days;
-                
-                // Update Title (if exists in cloud)
-                if (data.tripTitle) {
-                    currentTripTitle = data.tripTitle;
-                    
-                    // 👇 UPDATED: Force Tab Title to ALL CAPS 👇
-                    document.title = currentTripTitle.toUpperCase();
-                    
-                    // Update Input Field
-                    const titleInput = document.getElementById('trip-title-input');
-                    if (titleInput && document.activeElement !== titleInput) {
-                        titleInput.value = currentTripTitle;
-                    }
-                }
-                
-                // Refresh UI
-                renderDateSelector();
-                if (currentTab === 'timeline') showDay(currentDayIndex);
-                if (currentTab === 'category') renderCategory(document.getElementById('category-select').value);
-            } else {
-                // If cloud is empty, save default data
-                saveToCloud();
-            }
-        });
-    }
-
-    updateUIStrings();
-    renderDateSelector();
-    
-    // Add touch listeners
-    const timeline = document.getElementById('view-timeline');
-    if (timeline) {
-        timeline.addEventListener('touchstart', e => { 
-            touchStartX = e.changedTouches[0].screenX; 
-            touchStartY = e.changedTouches[0].screenY; 
-        }, false);
-        timeline.addEventListener('touchend', e => { 
-            touchEndX = e.changedTouches[0].screenX; 
-            touchEndY = e.changedTouches[0].screenY; 
-            handleSwipe(); 
-        }, false);
+        // 2. Load Dashboard first
+        await loadDashboard();
+    } else {
+        // Fallback for offline dev
+        console.warn("Firebase imports not found.");
+        activeTripData = tripData; // Fallback to data.js
+        document.getElementById('dashboard-view').classList.add('hidden');
+        document.getElementById('trip-view').classList.remove('hidden');
+        initTripView();
     }
 });
 
-/**
- * SAVES Title and Events to Cloud
- */
-async function saveToCloud() {
-    if (!tripDocRef || !window.firebaseImports) return;
-    const { setDoc } = window.firebaseImports;
+// --- DASHBOARD LOGIC ---
+
+async function loadDashboard() {
+    // Show Dashboard, Hide Trip
+    document.getElementById('dashboard-view').classList.remove('hidden');
+    document.getElementById('trip-view').classList.add('hidden');
+    document.title = "My Trips";
+
+    if (unsubscribeTripListener) {
+        unsubscribeTripListener(); // Stop listening to specific trip
+        unsubscribeTripListener = null;
+    }
+
+    const container = document.getElementById('trips-list-container');
+    const { collection, getDocs } = window.firebaseImports;
     
     try {
-        await setDoc(tripDocRef, { 
+        const querySnapshot = await getDocs(collection(db, "trips"));
+        const trips = [];
+        querySnapshot.forEach((doc) => {
+            trips.push({ id: doc.id, ...doc.data() });
+        });
+
+        if (trips.length === 0) {
+            container.innerHTML = `<div class="text-center py-10 text-gray-400">No trips found.<br>Create one above!</div>`;
+            return;
+        }
+
+        container.innerHTML = trips.map(trip => `
+            <div class="bg-white rounded-3xl p-5 shadow-sm border border-gray-200 active:scale-95 transition-transform relative group overflow-hidden">
+                 <button onclick="deleteTrip(event, '${trip.id}')" class="absolute top-4 right-4 z-20 bg-gray-100 text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                 </button>
+
+                 <div onclick="openTrip('${trip.id}')" class="cursor-pointer">
+                    <div class="flex items-center space-x-4 mb-2">
+                        <div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-2xl">✈️</div>
+                        <div>
+                            <h3 class="font-bold text-lg leading-tight text-gray-800">${trip.tripTitle || "Untitled Trip"}</h3>
+                            <p class="text-xs text-secondary font-bold uppercase tracking-wider">${trip.days ? trip.days.length : 0} Days Planned</p>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        console.error("Error loading trips:", e);
+        container.innerHTML = `<div class="text-red-500 text-center">Error loading trips.</div>`;
+    }
+}
+
+async function createNewTrip() {
+    const title = prompt("Enter a name for your new trip:");
+    if (!title) return;
+
+    const { collection, addDoc } = window.firebaseImports;
+    try {
+        await addDoc(collection(db, "trips"), {
+            tripTitle: title,
+            days: [] // Empty start
+        });
+        loadDashboard(); // Refresh list
+    } catch (e) {
+        alert("Error creating trip: " + e.message);
+    }
+}
+
+async function deleteTrip(event, tripId) {
+    event.stopPropagation();
+    if(!confirm("Delete this entire trip? This cannot be undone.")) return;
+
+    const { doc, deleteDoc } = window.firebaseImports;
+    try {
+        await deleteDoc(doc(db, "trips", tripId));
+        loadDashboard();
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+function openTrip(tripId) {
+    currentTripId = tripId;
+    
+    // Switch Views
+    document.getElementById('dashboard-view').classList.add('hidden');
+    document.getElementById('trip-view').classList.remove('hidden');
+
+    const { doc, onSnapshot } = window.firebaseImports;
+    const tripRef = doc(db, "trips", tripId);
+
+    // Subscribe to this specific trip
+    unsubscribeTripListener = onSnapshot(tripRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            activeTripData = data.days || [];
+            currentTripTitle = data.tripTitle || "Untitled Trip";
+            
+            // Update UI
+            document.title = currentTripTitle.toUpperCase();
+            const titleInput = document.getElementById('trip-title-input');
+            if (titleInput && document.activeElement !== titleInput) {
+                titleInput.value = currentTripTitle;
+            }
+
+            initTripView(); // Re-render the timeline view
+        } else {
+            // Doc deleted while viewing? Back to dashboard
+            backToDashboard();
+        }
+    });
+}
+
+function backToDashboard() {
+    currentTripId = null;
+    activeTripData = [];
+    loadDashboard();
+}
+
+// --- TRIP VIEW INITIALIZATION ---
+
+function initTripView() {
+    updateUIStrings();
+    renderDateSelector();
+    enableDragScroll(); 
+    
+    if (currentTab === 'timeline') showDay(currentDayIndex);
+    if (currentTab === 'category') renderCategory(document.getElementById('category-select').value);
+    
+    // Attach touch events
+    const timeline = document.getElementById('view-timeline');
+    if (timeline) {
+        // Remove old listeners to prevent stacking? 
+        // Simple way: just overwrite onclick/ontouch or clone node. 
+        // For now, simple add is okay as page doesn't fully reload often.
+    }
+}
+
+// --- CORE APP LOGIC (Previously in app.js, modified for generic data) ---
+
+async function saveToCloud() {
+    if (!currentTripId || !window.firebaseImports) return;
+    const { doc, setDoc } = window.firebaseImports;
+    
+    try {
+        await setDoc(doc(db, "trips", currentTripId), { 
             days: activeTripData,
             tripTitle: currentTripTitle 
-        });
-        console.log("Saved to cloud!");
+        }, { merge: true });
+        console.log("Saved to cloud.");
     } catch (e) {
         console.error("Error saving:", e);
     }
 }
 
-/**
- * Handles saving the title when user clicks away
- */
 function handleTitleSave(inputElement) {
     const newTitle = inputElement.value.trim();
     if (newTitle && newTitle !== currentTripTitle) {
         currentTripTitle = newTitle;
-        
-        // 👇 UPDATED: Force Tab Title to ALL CAPS immediately 👇
         document.title = currentTripTitle.toUpperCase();
-        
-        saveToCloud(); // Push new title to phone/PC
+        saveToCloud();
     }
 }
 
-// --- Standard App Logic Below ---
+// ... (KEEP ALL HELPERS LIKE getDayData, updateTheme, etc. EXACTLY AS THEY WERE) ...
+// ... Copying them below for completeness ...
+
+const daysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const daysZh = ["日", "一", "二", "三", "四", "五", "六"];
+const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function getDayData(dateStr) {
+    const parts = dateStr.split('-');
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayIdx = d.getDay();
+    const dateNum = d.getDate();
+    const monthIdx = d.getMonth();
+
+    return {
+        display: `${String(dateNum).padStart(2, '0')} ${monthsEn[monthIdx]}`,
+        day: daysEn[dayIdx],
+        dayZh: daysZh[dayIdx]
+    };
+}
 
 let touchStartX, touchStartY, touchEndX, touchEndY;
 
@@ -160,54 +271,53 @@ function validateTimeField(inputElement) {
 function updateUIStrings() {
     const t = translations[currentLang];
     
-    if(document.getElementById('ui-location-label')) document.getElementById('ui-location-label').innerText = t.location;
-    if(document.getElementById('lang-btn-text')) document.getElementById('lang-btn-text').innerText = t.langToggle;
-    
-    // View Titles
-    if(document.getElementById('ui-category-view-title')) document.getElementById('ui-category-view-title').innerText = t.categoryView;
-    if(document.getElementById('ui-category-desc')) document.getElementById('ui-category-desc').innerText = t.categoryDesc;
-    if(document.getElementById('ui-filter-label')) document.getElementById('ui-filter-label').innerText = t.filterBy;
-    if(document.getElementById('ui-memos-title')) document.getElementById('ui-memos-title').innerText = t.memos;
-    if(document.getElementById('ui-memos-desc')) document.getElementById('ui-memos-desc').innerText = t.memosDesc;
-    
-    if(document.getElementById('ui-gdoc-title')) document.getElementById('ui-gdoc-title').innerText = t.gdocTitle;
-    if(document.getElementById('ui-gdoc-sub')) document.getElementById('ui-gdoc-sub').innerText = t.gdocSub;
-    if(document.getElementById('ui-gdoc-btn')) document.getElementById('ui-gdoc-btn').innerText = t.open;
-    
-    if(document.getElementById('ui-reminders-label')) document.getElementById('ui-reminders-label').innerText = t.reminders;
-    if(document.getElementById('ui-reminders-list')) document.getElementById('ui-reminders-list').innerHTML = t.remindersContent;
-    
-    if(document.getElementById('ui-nav-journey')) document.getElementById('ui-nav-journey').innerText = t.journey;
-    if(document.getElementById('ui-nav-category')) document.getElementById('ui-nav-category').innerText = t.category;
-    if(document.getElementById('ui-nav-memos')) document.getElementById('ui-nav-memos').innerText = t.memos;
+    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
+    const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
+
+    setTxt('ui-location-label', t.location);
+    setTxt('lang-btn-text', t.langToggle);
+    setTxt('ui-category-view-title', t.categoryView);
+    setTxt('ui-category-desc', t.categoryDesc);
+    setTxt('ui-filter-label', t.filterBy);
+    setTxt('ui-memos-title', t.memos);
+    setTxt('ui-memos-desc', t.memosDesc);
+    setTxt('ui-gdoc-title', t.gdocTitle);
+    setTxt('ui-gdoc-sub', t.gdocSub);
+    setTxt('ui-gdoc-btn', t.open);
+    setTxt('ui-reminders-label', t.reminders);
+    setHtml('ui-reminders-list', t.remindersContent);
+    setTxt('ui-nav-journey', t.journey);
+    setTxt('ui-nav-category', t.category);
+    setTxt('ui-nav-memos', t.memos);
 
     const headerTitle = document.getElementById('app-header-title');
-    if (currentTab === 'timeline') headerTitle.innerText = t.journey;
-    else if (currentTab === 'category') headerTitle.innerText = t.category;
-    else headerTitle.innerText = t.memos;
+    if (headerTitle) {
+        if (currentTab === 'timeline') headerTitle.innerText = t.journey;
+        else if (currentTab === 'category') headerTitle.innerText = t.category;
+        else headerTitle.innerText = t.memos;
+    }
 
     const sel = document.getElementById('category-select');
-    const currentVal = sel.value || 'flight';
-    sel.innerHTML = `
-        <option value="flight">${t.catFlights}</option>
-        <option value="hotel">${t.catHotels}</option>
-        <option value="dining">${t.catMeals}</option>
-        <option value="activity">${t.catTours}</option>
-    `;
-    sel.value = currentVal;
+    if (sel) {
+        const currentVal = sel.value || 'flight';
+        sel.innerHTML = `
+            <option value="flight">${t.catFlights}</option>
+            <option value="hotel">${t.catHotels}</option>
+            <option value="dining">${t.catMeals}</option>
+            <option value="activity">${t.catTours}</option>
+        `;
+        sel.value = currentVal;
+    }
 }
-
-// --- Event Actions ---
 
 function openAddModal() {
     const modal = document.getElementById('add-modal');
     modal.classList.remove('hidden');
-    const dateSelect = document.getElementById('new-date-idx');
-    dateSelect.innerHTML = activeTripData.map((d, i) => `
-        <option value="${i}" ${i === currentDayIndex ? 'selected' : ''}>
-            ${d.display} - ${d.city}
-        </option>
-    `).join('');
+    const currentDay = activeTripData[currentDayIndex];
+    if (currentDay) {
+        document.getElementById('new-date-picker').value = currentDay.date;
+        document.getElementById('new-city').value = currentDay.city;
+    }
 }
 
 function closeAddModal() {
@@ -225,7 +335,8 @@ function handleNewEvent(e) {
         return; 
     }
 
-    const dayIdx = parseInt(document.getElementById('new-date-idx').value);
+    const inputDate = document.getElementById('new-date-picker').value;
+    const inputCity = document.getElementById('new-city').value;
     const type = document.getElementById('new-type').value;
     const time = document.getElementById('new-time').value;
     const title = document.getElementById('new-title').value;
@@ -241,35 +352,99 @@ function handleNewEvent(e) {
         mapUrl: "" 
     };
 
-    activeTripData[dayIdx].events.push(newEvent);
-    saveToCloud();
+    let targetDayIndex = activeTripData.findIndex(d => d.date === inputDate);
 
+    if (targetDayIndex !== -1) {
+        activeTripData[targetDayIndex].events.push(newEvent);
+    } else {
+        const dayInfo = getDayData(inputDate);
+        const newDay = {
+            date: inputDate,
+            display: dayInfo.display,
+            day: dayInfo.day,
+            dayZh: dayInfo.dayZh,
+            city: inputCity,
+            cityZh: inputCity, 
+            events: [newEvent]
+        };
+        activeTripData.push(newDay);
+        activeTripData.sort((a, b) => a.date.localeCompare(b.date));
+        targetDayIndex = activeTripData.findIndex(d => d.date === inputDate);
+    }
+
+    saveToCloud();
     closeAddModal();
     document.getElementById('add-event-form').reset();
-    
-    if (dayIdx === currentDayIndex) showDay(currentDayIndex);
-    else showDay(dayIdx);
+    showDay(targetDayIndex);
 }
 
 function deleteEvent(event, dayIdx, evtIdx) {
     event.stopPropagation();
     if (!confirm("Are you sure you want to delete this task?")) return;
+
     activeTripData[dayIdx].events.splice(evtIdx, 1);
+
+    if (activeTripData[dayIdx].events.length === 0) {
+        activeTripData.splice(dayIdx, 1);
+        if (currentDayIndex >= activeTripData.length) {
+            currentDayIndex = Math.max(0, activeTripData.length - 1);
+        }
+    }
+
     saveToCloud();
+    renderDateSelector(); 
+    if (activeTripData.length > 0) showDay(currentDayIndex);
 }
 
-// --- Rendering ---
+function deleteCurrentDay() {
+    if (activeTripData.length === 0) return;
+    const currentDay = activeTripData[currentDayIndex];
+    if (!currentDay) return;
+
+    const msg = `Are you sure you want to delete EVERYTHING for ${currentDay.display} (${currentDay.city})?\n\nThis cannot be undone.`;
+    if (!confirm(msg)) return;
+
+    activeTripData.splice(currentDayIndex, 1);
+
+    if (currentDayIndex >= activeTripData.length) {
+        currentDayIndex = Math.max(0, activeTripData.length - 1);
+    }
+
+    saveToCloud();
+    renderDateSelector();
+    
+    if (activeTripData.length === 0) {
+        document.getElementById('day-content-container').innerHTML = 
+            `<div class="text-center text-gray-400 mt-10 text-sm">No days planned.<br>Click "+" to add one.</div>`;
+        document.getElementById('current-city-name').innerText = "Journey";
+        updateTheme("Transit");
+    } else {
+        showDay(currentDayIndex);
+    }
+}
+window.deleteCurrentDay = deleteCurrentDay;
 
 function renderDateSelector() {
     const container = document.getElementById('date-scroll-container');
+    if (!container) return;
+    
+    if (activeTripData.length === 0) {
+        container.innerHTML = "";
+        return;
+    }
+
     container.innerHTML = activeTripData.map((d, i) => `
         <button onclick="showDay(${i})" id="date-pill-${i}" 
-            class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition">
-            <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60">${currentLang === 'en' ? d.day : d.dayZh}</div>
-            <div class="date-maintext text-sm font-bold text-text">${d.display}</div>
+            class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition select-none">
+            <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60 pointer-events-none">${currentLang === 'en' ? d.day : d.dayZh}</div>
+            <div class="date-maintext text-sm font-bold text-text pointer-events-none">${d.display}</div>
         </button>
     `).join('');
-    showDay(currentDayIndex);
+    
+    if(activeTripData.length > 0 && !activeTripData[currentDayIndex]) {
+        currentDayIndex = 0; // Reset if out of bounds
+        showDay(0);
+    }
 }
 
 function generateEventCard(e, dayIdx, evtIdx) {
@@ -308,6 +483,16 @@ function generateEventCard(e, dayIdx, evtIdx) {
 }
 
 function showDay(idx) {
+    if (activeTripData.length === 0) {
+        document.getElementById('day-content-container').innerHTML = 
+            `<div class="text-center text-gray-400 mt-10 text-sm">No days planned.<br>Click "+" to add one.</div>`;
+        document.getElementById('current-city-name').innerText = "Journey";
+        return;
+    }
+
+    if (idx >= activeTripData.length) idx = activeTripData.length - 1;
+    if (idx < 0) idx = 0;
+    
     currentDayIndex = idx;
     document.querySelectorAll('.date-pill').forEach(p => p.classList.remove('date-pill-active'));
     const activeBtn = document.getElementById(`date-pill-${idx}`);
@@ -403,3 +588,68 @@ function handleSwipe() {
         }
     }
 }
+
+function enableDragScroll() {
+    const slider = document.getElementById('date-scroll-container');
+    if (!slider) return;
+
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+    let isDragging = false; 
+
+    // Styles for grab cursor and NO TEXT SELECTION
+    slider.style.cursor = 'grab';
+    slider.style.userSelect = 'none'; 
+    slider.style.webkitUserSelect = 'none';
+
+    slider.addEventListener('mousedown', (e) => {
+        isDown = true;
+        isDragging = false; 
+        slider.style.cursor = 'grabbing';
+        
+        e.preventDefault(); 
+        slider.style.scrollBehavior = 'auto';
+
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = slider.scrollLeft;
+    });
+
+    slider.addEventListener('mouseleave', () => {
+        isDown = false;
+        slider.style.cursor = 'grab';
+        slider.style.scrollBehavior = 'smooth';
+    });
+
+    slider.addEventListener('mouseup', () => {
+        isDown = false;
+        slider.style.cursor = 'grab';
+        slider.style.scrollBehavior = 'smooth';
+    });
+
+    slider.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        
+        e.preventDefault(); 
+        const x = e.pageX - slider.offsetLeft;
+        const walk = (x - startX); 
+        
+        if (Math.abs(walk) > 3) {
+            isDragging = true;
+            slider.scrollLeft = scrollLeft - walk;
+        }
+    });
+
+    slider.addEventListener('click', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+            isDragging = false; 
+        }
+    }, true); 
+}
+// Attach dashboard functions to window
+window.createNewTrip = createNewTrip;
+window.deleteTrip = deleteTrip;
+window.openTrip = openTrip;
+window.backToDashboard = backToDashboard;

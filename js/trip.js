@@ -55,70 +55,16 @@ export function openTrip(tripId) {
 function initTripView() {
     console.log("Initializing Trip View...");
     
-    updateUIStrings();
-
     renderDateSelector();
     
     // Set theme based on current day's city
     const city = (activeTripData[currentDayIndex]) ? activeTripData[currentDayIndex].city : "Transit";
     updateTheme(city);
     
-    showDay(currentDayIndex);
     enableDragScroll(); 
-}
 
-// --- 👇 FIXED FUNCTION: Removed extra manual emojis ---
-function updateUIStrings() {
-    // Safety check: ensure translations exist
-    const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
-    
-    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
-    const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
-
-    // Update Text Labels
-    setTxt('ui-location-label', t.location || 'Location');
-    setTxt('lang-btn-text', t.langToggle || 'EN');
-    setTxt('ui-category-view-title', t.categoryView || 'Category View');
-    setTxt('ui-category-desc', t.categoryDesc || 'Browse specific types of reservations.');
-    setTxt('ui-filter-label', t.filterBy || 'Filter By');
-    setTxt('ui-memos-title', t.memos || 'Memos');
-    setTxt('ui-memos-desc', t.memosDesc || 'Shared space.');
-    setTxt('ui-gdoc-title', t.gdocTitle || 'Shared Doc');
-    setTxt('ui-gdoc-sub', t.gdocSub || 'Notes');
-    setTxt('ui-gdoc-btn', t.open || 'Open');
-    setTxt('ui-reminders-label', t.reminders || 'Reminders');
-    setHtml('ui-reminders-list', t.remindersContent || '');
-    setTxt('ui-nav-journey', t.journey || 'Journey');
-    setTxt('ui-nav-category', t.category || 'Category');
-    setTxt('ui-nav-memos', t.memos || 'Memos');
-
-    // Update Header Title based on current tab
-    const headerTitle = document.getElementById('app-header-title');
-    if (headerTitle) {
-        if (currentTab === 'timeline') headerTitle.innerText = t.journey;
-        else if (currentTab === 'category') headerTitle.innerText = t.category;
-        else headerTitle.innerText = t.memos;
-    }
-
-    // 👇 DROPDOWN FIX: Just use ${f}, don't add "✈️" before it
-    const sel = document.getElementById('category-select');
-    if (sel) {
-        const currentVal = sel.value || 'flight';
-        // Check if translations exist, otherwise fallback to English
-        const f = t.catFlights || 'Flights';
-        const h = t.catHotels || 'Hotels';
-        const m = t.catMeals || 'Dining';
-        const a = t.catTours || 'Activities';
-        
-        sel.innerHTML = `
-            <option value="flight">${f}</option>
-            <option value="hotel">${h}</option>
-            <option value="dining">${m}</option>
-            <option value="activity">${a}</option>
-            <option value="transfer">🚙 Transfer</option>
-        `;
-        sel.value = currentVal;
-    }
+    // 👇 Force reset to Timeline view (This ensures headers are visible when opening a trip)
+    switchTab('timeline');
 }
 
 // --- Data Saving ---
@@ -312,6 +258,14 @@ export function switchTab(tab) {
         document.getElementById(`nav-${t}`).classList.toggle('active-nav', t === tab);
     });
 
+    // 👇 NEW: Hide Location and Date Scroll if NOT on Timeline
+    const isTimeline = (tab === 'timeline');
+    const dateScroll = document.getElementById('date-scroll-container');
+    const cityBanner = document.getElementById('city-banner');
+
+    if (dateScroll) dateScroll.classList.toggle('hidden', !isTimeline);
+    if (cityBanner) cityBanner.classList.toggle('hidden', !isTimeline);
+
     updateUIStrings();
     
     if(tab === 'timeline') showDay(currentDayIndex);
@@ -354,4 +308,55 @@ export function renderCategory(category) {
         });
     });
     container.innerHTML = items.length ? items.join('') : `<p class="text-center text-secondary text-xs p-8 italic">No items found.</p>`;
+}
+
+// --- UI Strings & Translations ---
+function updateUIStrings() {
+    const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
+    
+    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
+    const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
+
+    // Update Text Labels
+    setTxt('ui-location-label', t.location || 'Location');
+    setTxt('lang-btn-text', t.langToggle || 'EN');
+    setTxt('ui-category-view-title', t.categoryView || 'Category View');
+    setTxt('ui-category-desc', t.categoryDesc || 'Browse specific types of reservations.');
+    setTxt('ui-filter-label', t.filterBy || 'Filter By');
+    setTxt('ui-memos-title', t.memos || 'Memos');
+    setTxt('ui-memos-desc', t.memosDesc || 'Shared space.');
+    setTxt('ui-gdoc-title', t.gdocTitle || 'Shared Doc');
+    setTxt('ui-gdoc-sub', t.gdocSub || 'Notes');
+    setTxt('ui-gdoc-btn', t.open || 'Open');
+    setTxt('ui-reminders-label', t.reminders || 'Reminders');
+    setHtml('ui-reminders-list', t.remindersContent || '');
+    setTxt('ui-nav-journey', t.journey || 'Journey');
+    setTxt('ui-nav-category', t.category || 'Category');
+    setTxt('ui-nav-memos', t.memos || 'Memos');
+
+    // Update Header Title based on current tab
+    const headerTitle = document.getElementById('app-header-title');
+    if (headerTitle) {
+        if (currentTab === 'timeline') headerTitle.innerText = t.journey;
+        else if (currentTab === 'category') headerTitle.innerText = t.category;
+        else headerTitle.innerText = t.memos;
+    }
+
+    const sel = document.getElementById('category-select');
+    if (sel) {
+        const currentVal = sel.value || 'flight';
+        const f = t.catFlights || 'Flights';
+        const h = t.catHotels || 'Hotels';
+        const m = t.catMeals || 'Dining';
+        const a = t.catTours || 'Activities';
+        
+        sel.innerHTML = `
+            <option value="flight">${f}</option>
+            <option value="hotel">${h}</option>
+            <option value="dining">${m}</option>
+            <option value="activity">${a}</option>
+            <option value="transfer">🚙 Transfer</option>
+        `;
+        sel.value = currentVal;
+    }
 }

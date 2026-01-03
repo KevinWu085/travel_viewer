@@ -6,10 +6,10 @@
 let currentDayIndex = 0;
 let currentLang = 'en';
 let currentTab = 'timeline';
-let activeTripData = []; // Starts empty, loads on selection
+let activeTripData = []; 
 let currentTripTitle = "Trip"; 
-let currentTripId = null; // Track which trip is active
-let unsubscribeTripListener = null; // To stop listening when switching trips
+let currentTripId = null; 
+let unsubscribeTripListener = null; 
 
 // --- 👇 FIREBASE CONFIG 👇 ---
 const firebaseConfig = {
@@ -22,7 +22,6 @@ const firebaseConfig = {
     measurementId: "G-3CYPNNPCB7"
 };
 
-// Initialize Firebase Variables
 let db;
 
 // --- Helper: Wait for Firebase to Load ---
@@ -35,10 +34,8 @@ function waitForFirebase() {
             checks++;
             if (window.firebaseImports) {
                 clearInterval(interval);
-                console.log("Firebase loaded!");
                 resolve(true);
             }
-            // Stop waiting after 3 seconds (fallback to offline)
             if (checks > 30) { 
                 clearInterval(interval);
                 resolve(false);
@@ -50,23 +47,17 @@ function waitForFirebase() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("App Loaded. Initializing...");
 
-    // 1. Wait for Imports
     const firebaseReady = await waitForFirebase();
 
-    // 2. Initialize if ready
     if (firebaseReady) {
         const { initializeApp, getFirestore } = window.firebaseImports;
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         
-        // 3. Load Dashboard
         await loadDashboard();
     } else {
-        // Fallback for offline/error
         console.warn("Firebase imports timed out. Loading default view.");
-        if (typeof tripData !== 'undefined') {
-            activeTripData = tripData; // Fallback to data.js
-        }
+        if (typeof tripData !== 'undefined') activeTripData = tripData;
         document.getElementById('dashboard-view').classList.add('hidden');
         document.getElementById('trip-view').classList.remove('hidden');
         initTripView();
@@ -76,13 +67,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 // --- DASHBOARD LOGIC ---
 
 async function loadDashboard() {
-    // Show Dashboard, Hide Trip
     document.getElementById('dashboard-view').classList.remove('hidden');
     document.getElementById('trip-view').classList.add('hidden');
     document.title = "My Trips";
 
     if (unsubscribeTripListener) {
-        unsubscribeTripListener(); // Stop listening to specific trip
+        unsubscribeTripListener(); 
         unsubscribeTripListener = null;
     }
 
@@ -96,8 +86,15 @@ async function loadDashboard() {
             trips.push({ id: doc.id, ...doc.data() });
         });
 
+        // 👇 UPDATED: Show Import Button if empty
         if (trips.length === 0) {
-            container.innerHTML = `<div class="text-center py-10 text-gray-400">No trips found.<br>Create one above!</div>`;
+            container.innerHTML = `
+                <div class="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-300">
+                    <p class="text-gray-400 mb-4 text-sm font-bold uppercase tracking-wider">No cloud trips found</p>
+                    <button onclick="importDefaultTrip()" class="bg-primary/10 text-primary px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wide hover:bg-primary/20 transition-all">
+                        Import "London 2026" Data
+                    </button>
+                </div>`;
             return;
         }
 
@@ -125,6 +122,33 @@ async function loadDashboard() {
     }
 }
 
+// 👇 NEW FUNCTION: Import Data from data.js to Cloud
+async function importDefaultTrip() {
+    const { collection, addDoc } = window.firebaseImports;
+    
+    // Check if tripData exists (from data.js)
+    if (typeof tripData === 'undefined') {
+        alert("Error: data.js not loaded properly.");
+        return;
+    }
+    
+    try {
+        const btn = document.querySelector('button[onclick="importDefaultTrip()"]');
+        if(btn) btn.innerText = "Importing...";
+
+        await addDoc(collection(db, "trips"), {
+            tripTitle: "2026 Jan London/Spain/Lisbon", 
+            days: tripData 
+        });
+        
+        // Reload dashboard to see the new card
+        loadDashboard();
+    } catch(e) {
+        console.error(e);
+        alert("Error importing: " + e.message);
+    }
+}
+
 async function createNewTrip() {
     const title = prompt("Enter a name for your new trip:");
     if (!title) return;
@@ -133,9 +157,9 @@ async function createNewTrip() {
     try {
         await addDoc(collection(db, "trips"), {
             tripTitle: title,
-            days: [] // Empty start
+            days: [] 
         });
-        loadDashboard(); // Refresh list
+        loadDashboard(); 
     } catch (e) {
         alert("Error creating trip: " + e.message);
     }
@@ -156,31 +180,26 @@ async function deleteTrip(event, tripId) {
 
 function openTrip(tripId) {
     currentTripId = tripId;
-    
-    // Switch Views
     document.getElementById('dashboard-view').classList.add('hidden');
     document.getElementById('trip-view').classList.remove('hidden');
 
     const { doc, onSnapshot } = window.firebaseImports;
     const tripRef = doc(db, "trips", tripId);
 
-    // Subscribe to this specific trip
     unsubscribeTripListener = onSnapshot(tripRef, (docSnapshot) => {
         if (docSnapshot.exists()) {
             const data = docSnapshot.data();
             activeTripData = data.days || [];
             currentTripTitle = data.tripTitle || "Untitled Trip";
             
-            // Update UI
             document.title = currentTripTitle.toUpperCase();
             const titleInput = document.getElementById('trip-title-input');
             if (titleInput && document.activeElement !== titleInput) {
                 titleInput.value = currentTripTitle;
             }
 
-            initTripView(); // Re-render the timeline view
+            initTripView(); 
         } else {
-            // Doc deleted while viewing? Back to dashboard
             backToDashboard();
         }
     });
@@ -198,7 +217,6 @@ function initTripView() {
     updateUIStrings();
     renderDateSelector();
     enableDragScroll(); 
-    
     if (currentTab === 'timeline') showDay(currentDayIndex);
     if (currentTab === 'category') renderCategory(document.getElementById('category-select').value);
 }
@@ -671,3 +689,4 @@ window.createNewTrip = createNewTrip;
 window.deleteTrip = deleteTrip;
 window.openTrip = openTrip;
 window.backToDashboard = backToDashboard;
+window.importDefaultTrip = importDefaultTrip;

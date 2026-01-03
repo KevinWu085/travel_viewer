@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateUIStrings();
     renderDateSelector();
+    enableDragScroll(); // 👈 NEW: Enable drag scrolling
     
     const timeline = document.getElementById('view-timeline');
     if (timeline) {
@@ -285,7 +286,6 @@ function deleteEvent(event, dayIdx, evtIdx) {
     if (activeTripData.length > 0) showDay(currentDayIndex);
 }
 
-// --- 👇 THIS IS THE FIX 👇 ---
 function deleteCurrentDay() {
     console.log("Delete button clicked");
     
@@ -304,12 +304,10 @@ function deleteCurrentDay() {
         return;
     }
 
-    console.log("Deleting index:", currentDayIndex);
-
     // 3. Remove the day
     activeTripData.splice(currentDayIndex, 1);
 
-    // 4. Adjust Index (prevent out of bounds)
+    // 4. Adjust Index
     if (currentDayIndex >= activeTripData.length) {
         currentDayIndex = Math.max(0, activeTripData.length - 1);
     }
@@ -328,7 +326,6 @@ function deleteCurrentDay() {
         showDay(currentDayIndex);
     }
 }
-// Explicitly attach to window so HTML 'onclick' can find it
 window.deleteCurrentDay = deleteCurrentDay;
 
 
@@ -344,7 +341,6 @@ function renderDateSelector() {
         </button>
     `).join('');
     
-    // If we have data but no valid index, show first day
     if(activeTripData.length > 0 && !activeTripData[currentDayIndex]) {
         showDay(0);
     }
@@ -403,7 +399,6 @@ function showDay(idx) {
         const container = document.getElementById('day-content-container');
         container.innerHTML = day.events.map((e, evtIdx) => generateEventCard(e, idx, evtIdx)).join('');
     } else {
-        // Fallback for empty state
         document.getElementById('day-content-container').innerHTML = "";
     }
 }
@@ -486,4 +481,59 @@ function handleSwipe() {
             if (currentDayIndex > 0) showDay(currentDayIndex - 1); 
         }
     }
+}
+
+// --- 👇 NEW FUNCTION: DRAG SCROLLING 👇 ---
+function enableDragScroll() {
+    const slider = document.getElementById('date-scroll-container');
+    if (!slider) return;
+
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+    let isDragging = false; 
+
+    slider.addEventListener('mousedown', (e) => {
+        isDown = true;
+        isDragging = false;
+        slider.style.cursor = 'grabbing';
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = slider.scrollLeft;
+    });
+
+    slider.addEventListener('mouseleave', () => {
+        isDown = false;
+        isDragging = false;
+        slider.style.cursor = 'grab';
+    });
+
+    slider.addEventListener('mouseup', (e) => {
+        isDown = false;
+        slider.style.cursor = 'grab';
+        
+        // Prevent click if we were dragging
+        if (isDragging) {
+             const preventClick = (eClick) => {
+                eClick.preventDefault();
+                eClick.stopPropagation();
+            };
+            slider.addEventListener('click', preventClick, { once: true, capture: true });
+        }
+        isDragging = false;
+    });
+
+    slider.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - slider.offsetLeft;
+        const walk = (x - startX) * 2; // Scroll speed
+        
+        if (Math.abs(walk) > 5) {
+            isDragging = true;
+        }
+        
+        slider.scrollLeft = scrollLeft - walk;
+    });
+
+    slider.style.cursor = 'grab';
 }

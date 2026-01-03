@@ -283,7 +283,21 @@ function handleNewEvent(e) {
 function deleteEvent(event, dayIdx, evtIdx) {
     event.stopPropagation();
     if (!confirm("Are you sure you want to delete this task?")) return;
+
+    // 1. Remove the specific event
     activeTripData[dayIdx].events.splice(evtIdx, 1);
+
+    // 2. CHECK: If the day has no more events, remove the day entirely
+    if (activeTripData[dayIdx].events.length === 0) {
+        activeTripData.splice(dayIdx, 1);
+        
+        // Safety: If we deleted the last day, step back the current index
+        if (currentDayIndex >= activeTripData.length) {
+            currentDayIndex = Math.max(0, activeTripData.length - 1);
+        }
+    }
+
+    // 3. Save changes (this triggers onSnapshot which updates the UI)
     saveToCloud();
 }
 

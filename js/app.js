@@ -1,5 +1,5 @@
 /* * APP LOGIC FILE
- * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + TAB SYNC (ALL CAPS)
+ * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + ALL CAPS TAB + NEW DATES
  */
 
 // --- Global State ---
@@ -7,7 +7,7 @@ let currentDayIndex = 0;
 let currentLang = 'en';
 let currentTab = 'timeline';
 let activeTripData = tripData; 
-let currentTripTitle = "2026 Jan London/Spain/Lisbon"; // Default title
+let currentTripTitle = "2026 Jan London/Spain/Lisbon"; 
 
 // --- 👇 FIREBASE SETUP (YOUR KEYS) 👇 ---
 const firebaseConfig = {
@@ -25,6 +25,8 @@ let db;
 let tripDocRef;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log("App Loaded. Initializing...");
+
     // 1. Initialize Firebase
     if (window.firebaseImports) {
         const { initializeApp, getFirestore, doc, onSnapshot } = window.firebaseImports;
@@ -37,31 +39,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         onSnapshot(tripDocRef, (docSnapshot) => {
             if (docSnapshot.exists()) {
                 const data = docSnapshot.data();
-                console.log("Cloud update received");
-                
-                // Update Events
                 if (data.days) activeTripData = data.days;
-                
-                // Update Title (if exists in cloud)
                 if (data.tripTitle) {
                     currentTripTitle = data.tripTitle;
-                    
-                    // 👇 UPDATED: Force Tab Title to ALL CAPS 👇
                     document.title = currentTripTitle.toUpperCase();
-                    
-                    // Update Input Field
                     const titleInput = document.getElementById('trip-title-input');
                     if (titleInput && document.activeElement !== titleInput) {
                         titleInput.value = currentTripTitle;
                     }
                 }
                 
-                // Refresh UI
                 renderDateSelector();
                 if (currentTab === 'timeline') showDay(currentDayIndex);
                 if (currentTab === 'category') renderCategory(document.getElementById('category-select').value);
             } else {
-                // If cloud is empty, save default data
                 saveToCloud();
             }
         });
@@ -70,7 +61,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateUIStrings();
     renderDateSelector();
     
-    // Add touch listeners
+    // 👇 ACTIVATE DRAG SCROLLING 👇
+    enableDragScroll(); 
+    
     const timeline = document.getElementById('view-timeline');
     if (timeline) {
         timeline.addEventListener('touchstart', e => { 
@@ -85,40 +78,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-/**
- * SAVES Title and Events to Cloud
- */
 async function saveToCloud() {
     if (!tripDocRef || !window.firebaseImports) return;
     const { setDoc } = window.firebaseImports;
-    
     try {
         await setDoc(tripDocRef, { 
             days: activeTripData,
             tripTitle: currentTripTitle 
         });
-        console.log("Saved to cloud!");
     } catch (e) {
         console.error("Error saving:", e);
     }
 }
 
-/**
- * Handles saving the title when user clicks away
- */
 function handleTitleSave(inputElement) {
     const newTitle = inputElement.value.trim();
     if (newTitle && newTitle !== currentTripTitle) {
         currentTripTitle = newTitle;
-        
-        // 👇 UPDATED: Force Tab Title to ALL CAPS immediately 👇
         document.title = currentTripTitle.toUpperCase();
-        
-        saveToCloud(); // Push new title to phone/PC
+        saveToCloud();
     }
 }
 
-// --- Standard App Logic Below ---
+// --- Helper: Date Formatting for New Days ---
+const daysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const daysZh = ["日", "一", "二", "三", "四", "五", "六"];
+const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function getDayData(dateStr) {
+    const parts = dateStr.split('-');
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayIdx = d.getDay();
+    const dateNum = d.getDate();
+    const monthIdx = d.getMonth();
+
+    return {
+        display: `${String(dateNum).padStart(2, '0')} ${monthsEn[monthIdx]}`,
+        day: daysEn[dayIdx],
+        dayZh: daysZh[dayIdx]
+    };
+}
+
+// --- Standard App Logic ---
 
 let touchStartX, touchStartY, touchEndX, touchEndY;
 
@@ -160,41 +161,44 @@ function validateTimeField(inputElement) {
 function updateUIStrings() {
     const t = translations[currentLang];
     
-    if(document.getElementById('ui-location-label')) document.getElementById('ui-location-label').innerText = t.location;
-    if(document.getElementById('lang-btn-text')) document.getElementById('lang-btn-text').innerText = t.langToggle;
-    
-    // View Titles
-    if(document.getElementById('ui-category-view-title')) document.getElementById('ui-category-view-title').innerText = t.categoryView;
-    if(document.getElementById('ui-category-desc')) document.getElementById('ui-category-desc').innerText = t.categoryDesc;
-    if(document.getElementById('ui-filter-label')) document.getElementById('ui-filter-label').innerText = t.filterBy;
-    if(document.getElementById('ui-memos-title')) document.getElementById('ui-memos-title').innerText = t.memos;
-    if(document.getElementById('ui-memos-desc')) document.getElementById('ui-memos-desc').innerText = t.memosDesc;
-    
-    if(document.getElementById('ui-gdoc-title')) document.getElementById('ui-gdoc-title').innerText = t.gdocTitle;
-    if(document.getElementById('ui-gdoc-sub')) document.getElementById('ui-gdoc-sub').innerText = t.gdocSub;
-    if(document.getElementById('ui-gdoc-btn')) document.getElementById('ui-gdoc-btn').innerText = t.open;
-    
-    if(document.getElementById('ui-reminders-label')) document.getElementById('ui-reminders-label').innerText = t.reminders;
-    if(document.getElementById('ui-reminders-list')) document.getElementById('ui-reminders-list').innerHTML = t.remindersContent;
-    
-    if(document.getElementById('ui-nav-journey')) document.getElementById('ui-nav-journey').innerText = t.journey;
-    if(document.getElementById('ui-nav-category')) document.getElementById('ui-nav-category').innerText = t.category;
-    if(document.getElementById('ui-nav-memos')) document.getElementById('ui-nav-memos').innerText = t.memos;
+    // Safety checks for elements
+    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
+    const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
+
+    setTxt('ui-location-label', t.location);
+    setTxt('lang-btn-text', t.langToggle);
+    setTxt('ui-category-view-title', t.categoryView);
+    setTxt('ui-category-desc', t.categoryDesc);
+    setTxt('ui-filter-label', t.filterBy);
+    setTxt('ui-memos-title', t.memos);
+    setTxt('ui-memos-desc', t.memosDesc);
+    setTxt('ui-gdoc-title', t.gdocTitle);
+    setTxt('ui-gdoc-sub', t.gdocSub);
+    setTxt('ui-gdoc-btn', t.open);
+    setTxt('ui-reminders-label', t.reminders);
+    setHtml('ui-reminders-list', t.remindersContent);
+    setTxt('ui-nav-journey', t.journey);
+    setTxt('ui-nav-category', t.category);
+    setTxt('ui-nav-memos', t.memos);
 
     const headerTitle = document.getElementById('app-header-title');
-    if (currentTab === 'timeline') headerTitle.innerText = t.journey;
-    else if (currentTab === 'category') headerTitle.innerText = t.category;
-    else headerTitle.innerText = t.memos;
+    if (headerTitle) {
+        if (currentTab === 'timeline') headerTitle.innerText = t.journey;
+        else if (currentTab === 'category') headerTitle.innerText = t.category;
+        else headerTitle.innerText = t.memos;
+    }
 
     const sel = document.getElementById('category-select');
-    const currentVal = sel.value || 'flight';
-    sel.innerHTML = `
-        <option value="flight">${t.catFlights}</option>
-        <option value="hotel">${t.catHotels}</option>
-        <option value="dining">${t.catMeals}</option>
-        <option value="activity">${t.catTours}</option>
-    `;
-    sel.value = currentVal;
+    if (sel) {
+        const currentVal = sel.value || 'flight';
+        sel.innerHTML = `
+            <option value="flight">${t.catFlights}</option>
+            <option value="hotel">${t.catHotels}</option>
+            <option value="dining">${t.catMeals}</option>
+            <option value="activity">${t.catTours}</option>
+        `;
+        sel.value = currentVal;
+    }
 }
 
 // --- Event Actions ---
@@ -202,12 +206,11 @@ function updateUIStrings() {
 function openAddModal() {
     const modal = document.getElementById('add-modal');
     modal.classList.remove('hidden');
-    const dateSelect = document.getElementById('new-date-idx');
-    dateSelect.innerHTML = activeTripData.map((d, i) => `
-        <option value="${i}" ${i === currentDayIndex ? 'selected' : ''}>
-            ${d.display} - ${d.city}
-        </option>
-    `).join('');
+    const currentDay = activeTripData[currentDayIndex];
+    if (currentDay) {
+        document.getElementById('new-date-picker').value = currentDay.date;
+        document.getElementById('new-city').value = currentDay.city;
+    }
 }
 
 function closeAddModal() {
@@ -225,7 +228,8 @@ function handleNewEvent(e) {
         return; 
     }
 
-    const dayIdx = parseInt(document.getElementById('new-date-idx').value);
+    const inputDate = document.getElementById('new-date-picker').value;
+    const inputCity = document.getElementById('new-city').value;
     const type = document.getElementById('new-type').value;
     const time = document.getElementById('new-time').value;
     const title = document.getElementById('new-title').value;
@@ -241,35 +245,95 @@ function handleNewEvent(e) {
         mapUrl: "" 
     };
 
-    activeTripData[dayIdx].events.push(newEvent);
-    saveToCloud();
+    let targetDayIndex = activeTripData.findIndex(d => d.date === inputDate);
 
+    if (targetDayIndex !== -1) {
+        activeTripData[targetDayIndex].events.push(newEvent);
+    } else {
+        const dayInfo = getDayData(inputDate);
+        const newDay = {
+            date: inputDate,
+            display: dayInfo.display,
+            day: dayInfo.day,
+            dayZh: dayInfo.dayZh,
+            city: inputCity,
+            cityZh: inputCity, 
+            events: [newEvent]
+        };
+        activeTripData.push(newDay);
+        activeTripData.sort((a, b) => a.date.localeCompare(b.date));
+        targetDayIndex = activeTripData.findIndex(d => d.date === inputDate);
+    }
+
+    saveToCloud();
     closeAddModal();
     document.getElementById('add-event-form').reset();
-    
-    if (dayIdx === currentDayIndex) showDay(currentDayIndex);
-    else showDay(dayIdx);
+    showDay(targetDayIndex);
 }
 
 function deleteEvent(event, dayIdx, evtIdx) {
     event.stopPropagation();
     if (!confirm("Are you sure you want to delete this task?")) return;
+
     activeTripData[dayIdx].events.splice(evtIdx, 1);
+
+    if (activeTripData[dayIdx].events.length === 0) {
+        activeTripData.splice(dayIdx, 1);
+        if (currentDayIndex >= activeTripData.length) {
+            currentDayIndex = Math.max(0, activeTripData.length - 1);
+        }
+    }
+
     saveToCloud();
+    renderDateSelector(); 
+    if (activeTripData.length > 0) showDay(currentDayIndex);
 }
+
+function deleteCurrentDay() {
+    if (activeTripData.length === 0) return;
+    const currentDay = activeTripData[currentDayIndex];
+    if (!currentDay) return;
+
+    const msg = `Are you sure you want to delete EVERYTHING for ${currentDay.display} (${currentDay.city})?\n\nThis cannot be undone.`;
+    if (!confirm(msg)) return;
+
+    activeTripData.splice(currentDayIndex, 1);
+
+    if (currentDayIndex >= activeTripData.length) {
+        currentDayIndex = Math.max(0, activeTripData.length - 1);
+    }
+
+    saveToCloud();
+    renderDateSelector();
+    
+    if (activeTripData.length === 0) {
+        document.getElementById('day-content-container').innerHTML = 
+            `<div class="text-center text-gray-400 mt-10 text-sm">No days planned.<br>Click "+" to add one.</div>`;
+        document.getElementById('current-city-name').innerText = "Journey";
+        updateTheme("Transit");
+    } else {
+        showDay(currentDayIndex);
+    }
+}
+window.deleteCurrentDay = deleteCurrentDay;
 
 // --- Rendering ---
 
 function renderDateSelector() {
     const container = document.getElementById('date-scroll-container');
+    if (!container) return;
+    
     container.innerHTML = activeTripData.map((d, i) => `
         <button onclick="showDay(${i})" id="date-pill-${i}" 
-            class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition">
-            <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60">${currentLang === 'en' ? d.day : d.dayZh}</div>
-            <div class="date-maintext text-sm font-bold text-text">${d.display}</div>
+            class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition select-none">
+            <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60 pointer-events-none">${currentLang === 'en' ? d.day : d.dayZh}</div>
+            <div class="date-maintext text-sm font-bold text-text pointer-events-none">${d.display}</div>
         </button>
     `).join('');
-    showDay(currentDayIndex);
+    
+    if(activeTripData.length > 0 && !activeTripData[currentDayIndex]) {
+        showDay(0);
+    }
 }
 
 function generateEventCard(e, dayIdx, evtIdx) {
@@ -308,6 +372,9 @@ function generateEventCard(e, dayIdx, evtIdx) {
 }
 
 function showDay(idx) {
+    if (idx >= activeTripData.length) idx = activeTripData.length - 1;
+    if (idx < 0) idx = 0;
+    
     currentDayIndex = idx;
     document.querySelectorAll('.date-pill').forEach(p => p.classList.remove('date-pill-active'));
     const activeBtn = document.getElementById(`date-pill-${idx}`);
@@ -321,6 +388,8 @@ function showDay(idx) {
         document.getElementById('current-city-name').innerText = currentLang === 'en' ? day.city : day.cityZh;
         const container = document.getElementById('day-content-container');
         container.innerHTML = day.events.map((e, evtIdx) => generateEventCard(e, idx, evtIdx)).join('');
+    } else {
+        document.getElementById('day-content-container').innerHTML = "";
     }
 }
 
@@ -402,4 +471,72 @@ function handleSwipe() {
             if (currentDayIndex > 0) showDay(currentDayIndex - 1); 
         }
     }
+}
+
+// --- 👇 REVISED DRAG SCROLL LOGIC 👇 ---
+function enableDragScroll() {
+    const slider = document.getElementById('date-scroll-container');
+    if (!slider) return;
+
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+    let isDragging = false; 
+
+    // Styles for grab cursor and NO TEXT SELECTION
+    slider.style.cursor = 'grab';
+    slider.style.userSelect = 'none'; 
+    slider.style.webkitUserSelect = 'none';
+
+    slider.addEventListener('mousedown', (e) => {
+        isDown = true;
+        isDragging = false; 
+        slider.style.cursor = 'grabbing';
+        
+        // 🛑 CRITICAL FIX: PREVENT TEXT SELECTION 🛑
+        e.preventDefault(); 
+        
+        // Remove smooth scroll during drag to prevent fighting
+        slider.style.scrollBehavior = 'auto';
+
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = slider.scrollLeft;
+    });
+
+    slider.addEventListener('mouseleave', () => {
+        isDown = false;
+        slider.style.cursor = 'grab';
+        slider.style.scrollBehavior = 'smooth';
+    });
+
+    slider.addEventListener('mouseup', () => {
+        isDown = false;
+        slider.style.cursor = 'grab';
+        slider.style.scrollBehavior = 'smooth';
+    });
+
+    slider.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        
+        e.preventDefault(); 
+        const x = e.pageX - slider.offsetLeft;
+        
+        // 🛑 CRITICAL FIX: 1:1 SCROLL SPEED (Removed the *2 multiplier) 🛑
+        const walk = (x - startX); 
+        
+        // Only scroll if moved more than 3px to avoid jittery clicks
+        if (Math.abs(walk) > 3) {
+            isDragging = true;
+            slider.scrollLeft = scrollLeft - walk;
+        }
+    });
+
+    // Capture click events and kill them if we were dragging
+    slider.addEventListener('click', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+            isDragging = false; 
+        }
+    }, true); 
 }

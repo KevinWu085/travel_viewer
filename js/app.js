@@ -1,5 +1,5 @@
 /* * APP LOGIC FILE
- * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + DASHBOARD + SORTING
+ * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + DASHBOARD + SORTING + SEARCH
  */
 
 // --- Global State ---
@@ -10,7 +10,9 @@ let activeTripData = [];
 let currentTripTitle = "Trip"; 
 let currentTripId = null; 
 let unsubscribeTripListener = null; 
-let currentSort = 'closest'; // Default sort order
+let currentSort = 'closest'; 
+let currentSearch = '';
+let cachedTrips = []; // Cache for instant searching
 
 // --- 👇 FIREBASE CONFIG 👇 ---
 const firebaseConfig = {
@@ -25,7 +27,6 @@ const firebaseConfig = {
 
 let db;
 
-// --- Helper: Wait for Firebase to Load ---
 function waitForFirebase() {
     return new Promise(resolve => {
         if (window.firebaseImports) return resolve(true);
@@ -67,9 +68,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // --- DASHBOARD LOGIC ---
 
+function handleSearch(val) {
+    currentSearch = val.toLowerCase();
+    renderDashboardList(); // Filter locally, instant response
+}
+
 function changeSort(sortType) {
     currentSort = sortType;
-    loadDashboard(); // Reload to re-sort
+    renderDashboardList(); // Sort locally
 }
 
 async function loadDashboard() {
@@ -84,78 +90,98 @@ async function loadDashboard() {
 
     const container = document.getElementById('trips-list-container');
     
-    // Safety Check: Did user update index.html?
     if (!window.firebaseImports.collection || !window.firebaseImports.getDocs) {
-        container.innerHTML = `<div class="text-red-500 text-center font-bold p-5 border border-red-200 bg-red-50 rounded-xl">⚠️ Critical Error: Missing Imports<br><span class="text-xs font-normal text-black">Please update your index.html file to include 'collection' and 'getDocs' in the import statement.</span></div>`;
+        container.innerHTML = `<div class="text-red-500 text-center font-bold p-5">⚠️ Critical Error: Missing Imports</div>`;
         return;
     }
 
     const { collection, getDocs } = window.firebaseImports;
     
     try {
+        // Fetch ONCE and cache
         const querySnapshot = await getDocs(collection(db, "trips"));
-        let trips = [];
+        cachedTrips = [];
         querySnapshot.forEach((doc) => {
-            trips.push({ id: doc.id, ...doc.data() });
+            cachedTrips.push({ id: doc.id, ...doc.data() });
         });
 
-        if (trips.length === 0) {
-            container.innerHTML = `
+        renderDashboardList();
+
+    } catch (e) {
+        console.error("Error loading trips:", e);
+        container.innerHTML = `<div class="text-red-500 text-center">Error loading trips: ${e.message}</div>`;
+    }
+}
+
+// Separate Render function for instant Sort/Search
+function renderDashboardList() {
+    const container = document.getElementById('trips-list-container');
+
+    // 1. Filter
+    let filteredTrips = cachedTrips.filter(trip => {
+        const title = (trip.tripTitle || "").toLowerCase();
+        return title.includes(currentSearch);
+    });
+
+    if (filteredTrips.length === 0) {
+        if (cachedTrips.length === 0) {
+            // No trips at all
+             container.innerHTML = `
                 <div class="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-300">
                     <p class="text-gray-400 mb-4 text-sm font-bold uppercase tracking-wider">No cloud trips found</p>
                     <button onclick="importDefaultTrip()" class="bg-gray-900 text-white px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wide shadow-lg hover:scale-105 transition-all">
                         Import Default Trip (London 2026)
                     </button>
                 </div>`;
-            return;
+        } else {
+             // No search results
+             container.innerHTML = `<div class="text-center py-10 text-gray-400 text-sm">No trips match "${currentSearch}"</div>`;
         }
-
-        // 👇 SORTING LOGIC 👇
-        trips.sort((a, b) => {
-            if (currentSort === 'alpha') {
-                const titleA = (a.tripTitle || "").toLowerCase();
-                const titleB = (b.tripTitle || "").toLowerCase();
-                return titleA.localeCompare(titleB);
-            } 
-            else if (currentSort === 'newest') {
-                // Sort by creation time (descending). Fallback to 0 if undefined.
-                return (b.createdAt || 0) - (a.createdAt || 0);
-            } 
-            else if (currentSort === 'closest') {
-                // Helper to get distance from today
-                const getDist = (t) => {
-                    if (!t.days || t.days.length === 0) return Infinity; // No dates = far away
-                    // Use the first day as the "Start Date"
-                    const startDate = new Date(t.days[0].date);
-                    return Math.abs(startDate - new Date());
-                };
-                return getDist(a) - getDist(b);
-            }
-            return 0;
-        });
-
-        container.innerHTML = trips.map(trip => `
-            <div class="bg-white rounded-3xl p-5 shadow-sm border border-gray-200 active:scale-95 transition-transform relative group overflow-hidden">
-                 <button onclick="deleteTrip(event, '${trip.id}')" class="absolute top-4 right-4 z-20 bg-gray-100 text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-all">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                 </button>
-
-                 <div onclick="openTrip('${trip.id}')" class="cursor-pointer">
-                    <div class="flex items-center space-x-4 mb-2">
-                        <div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-2xl">✈️</div>
-                        <div>
-                            <h3 class="font-bold text-lg leading-tight text-gray-800">${trip.tripTitle || "Untitled Trip"}</h3>
-                            <p class="text-xs text-secondary font-bold uppercase tracking-wider">${trip.days ? trip.days.length : 0} Days Planned</p>
-                        </div>
-                    </div>
-                 </div>
-            </div>
-        `).join('');
-
-    } catch (e) {
-        console.error("Error loading trips:", e);
-        container.innerHTML = `<div class="text-red-500 text-center">Error loading trips: ${e.message}</div>`;
+        return;
     }
+
+    // 2. Sort
+    filteredTrips.sort((a, b) => {
+        if (currentSort === 'alpha') {
+            const titleA = (a.tripTitle || "").toLowerCase();
+            const titleB = (b.tripTitle || "").toLowerCase();
+            return titleA.localeCompare(titleB);
+        } 
+        else if (currentSort === 'newest') {
+            return (b.createdAt || 0) - (a.createdAt || 0);
+        } 
+        else if (currentSort === 'closest') {
+            const getDist = (t) => {
+                if (!t.days || t.days.length === 0) return Infinity; 
+                // We use first day as approximate start
+                const startDate = new Date(t.days[0].date);
+                // Difference in milliseconds, treat past trips as 'far' or use Math.abs?
+                // Usually "Closest Upcoming". If pure absolute distance:
+                return Math.abs(startDate - new Date());
+            };
+            return getDist(a) - getDist(b);
+        }
+        return 0;
+    });
+
+    // 3. Render
+    container.innerHTML = filteredTrips.map(trip => `
+        <div class="bg-white rounded-3xl p-5 shadow-sm border border-gray-200 active:scale-95 transition-transform relative group overflow-hidden">
+             <button onclick="deleteTrip(event, '${trip.id}')" class="absolute top-4 right-4 z-20 bg-gray-100 text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+             </button>
+
+             <div onclick="openTrip('${trip.id}')" class="cursor-pointer">
+                <div class="flex items-center space-x-4 mb-2">
+                    <div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-2xl">✈️</div>
+                    <div>
+                        <h3 class="font-bold text-lg leading-tight text-gray-800">${trip.tripTitle || "Untitled Trip"}</h3>
+                        <p class="text-xs text-secondary font-bold uppercase tracking-wider">${trip.days ? trip.days.length : 0} Days Planned</p>
+                    </div>
+                </div>
+             </div>
+        </div>
+    `).join('');
 }
 
 async function importDefaultTrip() {
@@ -173,7 +199,7 @@ async function importDefaultTrip() {
         await addDoc(collection(db, "trips"), {
             tripTitle: "2026 Jan London/Spain/Lisbon", 
             days: tripData,
-            createdAt: Date.now() // Add creation time
+            createdAt: Date.now()
         });
         
         loadDashboard(); 
@@ -192,7 +218,7 @@ async function createNewTrip() {
         await addDoc(collection(db, "trips"), {
             tripTitle: title,
             days: [],
-            createdAt: Date.now() // Add creation time
+            createdAt: Date.now()
         });
         loadDashboard(); 
     } catch (e) {
@@ -215,6 +241,7 @@ async function deleteTrip(event, tripId) {
 
 function openTrip(tripId) {
     currentTripId = tripId;
+    document.getElementById('dashboard-search').value = ""; // Clear search when entering trip
     document.getElementById('dashboard-view').classList.add('hidden');
     document.getElementById('trip-view').classList.remove('hidden');
 
@@ -494,6 +521,7 @@ function deleteCurrentDay() {
     }
 }
 window.deleteCurrentDay = deleteCurrentDay;
+window.handleSearch = handleSearch;
 window.changeSort = changeSort;
 window.createNewTrip = createNewTrip;
 window.deleteTrip = deleteTrip;

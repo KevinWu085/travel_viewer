@@ -25,21 +25,48 @@ const firebaseConfig = {
 // Initialize Firebase Variables
 let db;
 
+// --- Helper: Wait for Firebase to Load ---
+function waitForFirebase() {
+    return new Promise(resolve => {
+        if (window.firebaseImports) return resolve(true);
+        console.log("Waiting for Firebase...");
+        let checks = 0;
+        const interval = setInterval(() => {
+            checks++;
+            if (window.firebaseImports) {
+                clearInterval(interval);
+                console.log("Firebase loaded!");
+                resolve(true);
+            }
+            // Stop waiting after 3 seconds (fallback to offline)
+            if (checks > 30) { 
+                clearInterval(interval);
+                resolve(false);
+            }
+        }, 100);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("App Loaded. Initializing...");
 
-    // 1. Initialize Firebase
-    if (window.firebaseImports) {
+    // 1. Wait for Imports
+    const firebaseReady = await waitForFirebase();
+
+    // 2. Initialize if ready
+    if (firebaseReady) {
         const { initializeApp, getFirestore } = window.firebaseImports;
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         
-        // 2. Load Dashboard first
+        // 3. Load Dashboard
         await loadDashboard();
     } else {
-        // Fallback for offline dev
-        console.warn("Firebase imports not found.");
-        activeTripData = tripData; // Fallback to data.js
+        // Fallback for offline/error
+        console.warn("Firebase imports timed out. Loading default view.");
+        if (typeof tripData !== 'undefined') {
+            activeTripData = tripData; // Fallback to data.js
+        }
         document.getElementById('dashboard-view').classList.add('hidden');
         document.getElementById('trip-view').classList.remove('hidden');
         initTripView();
@@ -174,17 +201,9 @@ function initTripView() {
     
     if (currentTab === 'timeline') showDay(currentDayIndex);
     if (currentTab === 'category') renderCategory(document.getElementById('category-select').value);
-    
-    // Attach touch events
-    const timeline = document.getElementById('view-timeline');
-    if (timeline) {
-        // Remove old listeners to prevent stacking? 
-        // Simple way: just overwrite onclick/ontouch or clone node. 
-        // For now, simple add is okay as page doesn't fully reload often.
-    }
 }
 
-// --- CORE APP LOGIC (Previously in app.js, modified for generic data) ---
+// --- CORE APP LOGIC ---
 
 async function saveToCloud() {
     if (!currentTripId || !window.firebaseImports) return;
@@ -210,8 +229,7 @@ function handleTitleSave(inputElement) {
     }
 }
 
-// ... (KEEP ALL HELPERS LIKE getDayData, updateTheme, etc. EXACTLY AS THEY WERE) ...
-// ... Copying them below for completeness ...
+// ... HELPERS ...
 
 const daysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const daysZh = ["日", "一", "二", "三", "四", "五", "六"];

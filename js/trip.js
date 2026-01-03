@@ -55,7 +55,6 @@ export function openTrip(tripId) {
 function initTripView() {
     console.log("Initializing Trip View...");
     
-    // 👇 THIS WAS MISSING: Populate the dropdown and labels
     updateUIStrings();
 
     renderDateSelector();
@@ -66,6 +65,58 @@ function initTripView() {
     
     showDay(currentDayIndex);
     enableDragScroll(); 
+}
+
+// --- 👇 FIXED FUNCTION: Removed extra emojis ---
+function updateUIStrings() {
+    const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
+    
+    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
+    const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
+
+    // Update Text Labels
+    setTxt('ui-location-label', t.location);
+    setTxt('lang-btn-text', t.langToggle);
+    setTxt('ui-category-view-title', t.categoryView);
+    setTxt('ui-category-desc', t.categoryDesc);
+    setTxt('ui-filter-label', t.filterBy);
+    setTxt('ui-memos-title', t.memos);
+    setTxt('ui-memos-desc', t.memosDesc);
+    setTxt('ui-gdoc-title', t.gdocTitle);
+    setTxt('ui-gdoc-sub', t.gdocSub);
+    setTxt('ui-gdoc-btn', t.open);
+    setTxt('ui-reminders-label', t.reminders);
+    setHtml('ui-reminders-list', t.remindersContent);
+    setTxt('ui-nav-journey', t.journey);
+    setTxt('ui-nav-category', t.category);
+    setTxt('ui-nav-memos', t.memos);
+
+    // Update Header Title based on current tab
+    const headerTitle = document.getElementById('app-header-title');
+    if (headerTitle) {
+        if (currentTab === 'timeline') headerTitle.innerText = t.journey;
+        else if (currentTab === 'category') headerTitle.innerText = t.category;
+        else headerTitle.innerText = t.memos;
+    }
+
+    // 👇 FIXED: Removed the extra emojis here because ${f}, ${h} etc already contain them from data.js
+    const sel = document.getElementById('category-select');
+    if (sel) {
+        const currentVal = sel.value || 'flight';
+        const f = t.catFlights || 'Flights';
+        const h = t.catHotels || 'Hotels';
+        const m = t.catMeals || 'Dining';
+        const a = t.catTours || 'Activities';
+        
+        sel.innerHTML = `
+            <option value="flight">${f}</option>
+            <option value="hotel">${h}</option>
+            <option value="dining">${m}</option>
+            <option value="activity">${a}</option>
+            <option value="transfer">🚙 Transfer</option>
+        `;
+        sel.value = currentVal;
+    }
 }
 
 // --- Data Saving ---
@@ -301,58 +352,4 @@ export function renderCategory(category) {
         });
     });
     container.innerHTML = items.length ? items.join('') : `<p class="text-center text-secondary text-xs p-8 italic">No items found.</p>`;
-}
-
-// --- 👇 NEW FUNCTION: Manage Translations & Dropdown ---
-function updateUIStrings() {
-    // Safety check: ensure translations exist
-    const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
-    
-    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
-    const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
-
-    // Update Text Labels
-    setTxt('ui-location-label', t.location || 'Location');
-    setTxt('lang-btn-text', t.langToggle || 'EN');
-    setTxt('ui-category-view-title', t.categoryView || 'Category View');
-    setTxt('ui-category-desc', t.categoryDesc || 'Browse specific types of reservations.');
-    setTxt('ui-filter-label', t.filterBy || 'Filter By');
-    setTxt('ui-memos-title', t.memos || 'Memos');
-    setTxt('ui-memos-desc', t.memosDesc || 'Shared space.');
-    setTxt('ui-gdoc-title', t.gdocTitle || 'Shared Doc');
-    setTxt('ui-gdoc-sub', t.gdocSub || 'Notes');
-    setTxt('ui-gdoc-btn', t.open || 'Open');
-    setTxt('ui-reminders-label', t.reminders || 'Reminders');
-    setHtml('ui-reminders-list', t.remindersContent || '');
-    setTxt('ui-nav-journey', t.journey || 'Journey');
-    setTxt('ui-nav-category', t.category || 'Category');
-    setTxt('ui-nav-memos', t.memos || 'Memos');
-
-    // Update Header Title based on current tab
-    const headerTitle = document.getElementById('app-header-title');
-    if (headerTitle) {
-        if (currentTab === 'timeline') headerTitle.innerText = t.journey;
-        else if (currentTab === 'category') headerTitle.innerText = t.category;
-        else headerTitle.innerText = t.memos;
-    }
-
-    // 👇 POPULATE THE DROPDOWN
-    const sel = document.getElementById('category-select');
-    if (sel) {
-        const currentVal = sel.value || 'flight';
-        // Check if translations exist, otherwise fallback to English
-        const f = t.catFlights || 'Flights';
-        const h = t.catHotels || 'Hotels';
-        const m = t.catMeals || 'Dining';
-        const a = t.catTours || 'Activities';
-        
-        sel.innerHTML = `
-            <option value="flight">✈️ ${f}</option>
-            <option value="hotel">🏨 ${h}</option>
-            <option value="dining">🍽️ ${m}</option>
-            <option value="activity">🎨 ${a}</option>
-            <option value="transfer">🚙 Transfer</option>
-        `;
-        sel.value = currentVal;
-    }
 }

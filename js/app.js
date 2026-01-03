@@ -1,297 +1,35 @@
-/* * APP LOGIC FILE
- * Handles all functionality:
- * - Rendering the UI
- * - Switching languages
- * - Swipe navigation
- * - Tab switching
- */
+// js/app.js
+import { initFirebase } from './firebase-config.js';
+import { loadDashboard, createNewTrip, deleteTrip, openTrip, handleSearch, changeSort, importDefaultTrip } from './dashboard.js';
+import { 
+    handleNewEvent, deleteEvent, deleteCurrentDay, 
+    handleTitleSave, switchTab, toggleLang, showDay,
+    openAddModal, closeAddModal 
+} from './trip.js';
+import { validateTimeField } from './utils.js';
 
-// --- Global State ---
-let currentDayIndex = 0;
-let currentLang = 'en';
-let currentTab = 'timeline';
-
-// --- Touch State for Swiping ---
-let touchStartX, touchStartY, touchEndX, touchEndY;
-
-// --- Helper Functions ---
-
-/**
- * Updates the CSS variable --primary-color based on the city.
- */
-function updateTheme(city) {
-    const color = themes[city] || themes["Transit"];
-    document.documentElement.style.setProperty('--primary-color', color);
-}
-
-/**
- * Toggles between English ('en') and Chinese ('zh').
- * Re-renders the UI to show the new language immediately.
- */
-function toggleLang() {
-    currentLang = currentLang === 'en' ? 'zh' : 'en';
-    updateUIStrings();
-    renderDateSelector();
-    
-    // If on the category tab, re-render it to update text
-    if (currentTab === 'category') {
-        renderCategory(document.getElementById('category-select').value);
-    }
-    
-    // Re-render the current day to update titles
-    if (currentTab === 'timeline') {
-        showDay(currentDayIndex);
-    }
-}
-
-/**
- * Updates all static text elements (headers, buttons, descriptions)
- * based on the currentLang.
- */
-function updateUIStrings() {
-    const t = translations[currentLang];
-    
-    // Header & Info
-    document.getElementById('ui-tour-label').innerText = t.tourLabel;
-    document.getElementById('ui-location-label').innerText = t.location;
-    document.getElementById('lang-btn-text').innerText = t.langToggle;
-
-    // View Titles & Descriptions
-    document.getElementById('ui-category-view-title').innerText = t.categoryView;
-    document.getElementById('ui-category-desc').innerText = t.categoryDesc;
-    document.getElementById('ui-filter-label').innerText = t.filterBy;
-    
-    document.getElementById('ui-memos-title').innerText = t.memos;
-    document.getElementById('ui-memos-desc').innerText = t.memosDesc;
-    
-    // Google Doc Section
-    document.getElementById('ui-gdoc-title').innerText = t.gdocTitle;
-    document.getElementById('ui-gdoc-sub').innerText = t.gdocSub;
-    document.getElementById('ui-gdoc-btn').innerText = t.open;
-    
-    // Reminders Section
-    document.getElementById('ui-reminders-label').innerText = t.reminders;
-    document.getElementById('ui-reminders-list').innerHTML = t.remindersContent;
-    
-    // Navigation Bar Labels
-    document.getElementById('ui-nav-journey').innerText = t.journey;
-    document.getElementById('ui-nav-category').innerText = t.category;
-    document.getElementById('ui-nav-memos').innerText = t.memos;
-
-    // Main App Header Title logic
-    const headerTitle = document.getElementById('app-header-title');
-    if (currentTab === 'timeline') headerTitle.innerText = t.journey;
-    else if (currentTab === 'category') headerTitle.innerText = t.category;
-    else headerTitle.innerText = t.memos;
-
-    // Populate Category Dropdown
-    const sel = document.getElementById('category-select');
-    const currentVal = sel.value || 'flight';
-    sel.innerHTML = `
-        <option value="flight">${t.catFlights}</option>
-        <option value="hotel">${t.catHotels}</option>
-        <option value="dining">${t.catMeals}</option>
-        <option value="activity">${t.catTours}</option>
-    `;
-    sel.value = currentVal;
-}
-
-// --- Rendering Functions ---
-
-/**
- * Generates the horizontal date scroll bar at the top.
- */
-function renderDateSelector() {
-    const container = document.getElementById('date-scroll-container');
-    container.innerHTML = tripData.map((d, i) => `
-        <button onclick="showDay(${i})" id="date-pill-${i}" 
-            class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition">
-            <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60">${currentLang === 'en' ? d.day : d.dayZh}</div>
-            <div class="date-maintext text-sm font-bold text-text">${d.display}</div>
-        </button>
-    `).join('');
-    
-    // Highlight the current day after rendering
-    showDay(currentDayIndex);
-}
-
-/**
- * Creates the HTML string for a single event card.
- */
-function generateEventCard(e) {
-    const t = translations[currentLang];
-    const mapButton = e.mapUrl ? `
-        <a href="${e.mapUrl}" target="_blank" class="mt-3 inline-flex items-center space-x-1 py-1 px-3 bg-primary/10 rounded-md border border-primary/30 text-primary theme-transition active:scale-95 transition-all">
-            <span class="text-[10px] font-bold uppercase tracking-widest">${t.map}</span>
-            <span class="text-[10px]">📍</span>
-        </a>
-    ` : '';
-
-    return `
-        <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start active:scale-95 transition-transform slide-up">
-            <div class="w-12 h-12 rounded-2xl ${colors[e.type] || 'bg-gray-50'} flex items-center justify-center text-xl flex-shrink-0">
-                ${icons[e.type] || '📍'}
-            </div>
-            <div class="flex-grow">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-[10px] font-bold uppercase tracking-widest text-secondary opacity-50">${e.type}</span>
-                    <span class="text-xs font-bold text-primary theme-transition">${e.time}</span>
-                </div>
-                <h3 class="font-bold text-lg leading-tight">${currentLang === 'en' ? e.title : e.titleZh}</h3>
-                <p class="text-xs text-secondary mt-1">${e.details}</p>
-                <div class="flex flex-wrap items-center gap-2">
-                    ${e.sub ? `<div class="mt-3 text-[10px] py-1 px-2 bg-gray-50 inline-block rounded-md border border-gray-300 font-bold text-secondary uppercase">${e.sub}</div>` : ''}
-                    ${mapButton}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Displays the specific day in the Timeline view.
- */
-function showDay(idx) {
-    currentDayIndex = idx;
-    
-    // Update pill styling
-    document.querySelectorAll('.date-pill').forEach(p => p.classList.remove('date-pill-active'));
-    const activeBtn = document.getElementById(`date-pill-${idx}`);
-    if (activeBtn) {
-        activeBtn.classList.add('date-pill-active');
-        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-    
-    // Update Content
-    const day = tripData[idx];
-    updateTheme(day.city);
-    document.getElementById('current-city-name').innerText = currentLang === 'en' ? day.city : day.cityZh;
-    
-    const container = document.getElementById('day-content-container');
-    container.innerHTML = day.events.map((e, i) => generateEventCard(e)).join('');
-}
-
-/**
- * Switches between the 3 main tabs: Timeline, Category, Memos.
- */
-function switchTab(tabId) {
-    currentTab = tabId;
-    const sections = ['timeline', 'category', 'memos'];
-    
-    // Toggle Visibility
-    sections.forEach(id => {
-        document.getElementById(`view-${id}`).classList.toggle('hidden', id !== tabId);
-        document.getElementById(`nav-${id}`).classList.toggle('active-nav', id === tabId);
-        document.getElementById(`nav-${id}`).classList.toggle('text-gray-400', id !== tabId);
-    });
-    
-    // Update Header and Global UI
-    const header = document.getElementById('app-header-title');
-    const scroller = document.getElementById('date-scroll-container');
-    const banner = document.getElementById('city-banner');
-    const t = translations[currentLang];
-    
-    if (tabId === 'timeline') { 
-        header.innerText = t.journey; 
-        scroller.classList.remove('hidden'); 
-        banner.classList.remove('hidden');
-        updateTheme(tripData[currentDayIndex].city);
-    } else {
-        scroller.classList.add('hidden');
-        banner.classList.add('hidden');
-        updateTheme("Transit"); // Neutral theme for other tabs
-        
-        if (tabId === 'category') {
-            header.innerText = t.category;
-            renderCategory(document.getElementById('category-select').value);
-        }
-        if (tabId === 'memos') {
-            header.innerText = t.memos;
-        }
-    }
-}
-
-/**
- * Renders the filtered Category view (e.g., showing only Flights).
- */
-function renderCategory(category) {
-    const container = document.getElementById('category-results');
-    const items = [];
-    
-    tripData.forEach(day => {
-        day.events.forEach(e => {
-            if (e.type === category) {
-                const t = translations[currentLang];
-                const mapBtn = e.mapUrl ? `
-                    <a href="${e.mapUrl}" target="_blank" class="mt-3 inline-flex items-center space-x-1 py-1 px-2 bg-primary/10 rounded-md border border-primary/30 text-primary theme-transition active:scale-95 transition-all">
-                        <span class="text-[9px] font-bold uppercase tracking-widest">${t.map}</span>
-                        <span class="text-[9px]">📍</span>
-                    </a>
-                ` : '';
-
-                items.push(`
-                    <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start fade-in">
-                        <div class="w-10 h-10 rounded-xl ${colors[category]} flex items-center justify-center text-lg flex-shrink-0">
-                            ${icons[category]}
-                        </div>
-                        <div class="flex-grow">
-                            <div class="flex justify-between items-center mb-1">
-                                <p class="text-[10px] font-bold text-primary theme-transition uppercase">${currentLang === 'en' ? day.day : day.dayZh} ${day.display} • ${currentLang === 'en' ? day.city : day.cityZh}</p>
-                                <span class="text-[10px] font-bold text-secondary opacity-60">${e.time}</span>
-                            </div>
-                            <h4 class="font-bold text-sm leading-tight">${currentLang === 'en' ? e.title : e.titleZh}</h4>
-                            <p class="text-[11px] text-secondary mt-1">${e.details}</p>
-                            <div class="flex flex-wrap items-center gap-2">
-                                ${e.sub ? `<p class="text-[10px] text-primary theme-transition mt-1 font-bold">${e.sub}</p>` : ''}
-                                ${mapBtn}
-                            </div>
-                        </div>
-                    </div>
-                `);
-            }
-        });
-    });
-    
-    container.innerHTML = items.length ? items.join('') : `<p class="text-center text-secondary text-xs p-8 italic">No items found.</p>`;
-}
-
-// --- Event Listeners & Initialization ---
-
-function handleSwipe() {
-    if (currentTab !== 'timeline') return;
-    const xDiff = touchEndX - touchStartX;
-    const yDiff = touchEndY - touchStartY;
-    
-    // Threshold for swipe (must be horizontal and long enough)
-    if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 50) {
-        if (xDiff < 0) { 
-            // Swipe Left -> Next Day
-            if (currentDayIndex < tripData.length - 1) showDay(currentDayIndex + 1); 
-        } else { 
-            // Swipe Right -> Previous Day
-            if (currentDayIndex > 0) showDay(currentDayIndex - 1); 
-        }
-    }
-}
-
-// Wait for HTML to load before running logic
-document.addEventListener('DOMContentLoaded', () => {
-    // Add touch listeners to the timeline view
-    const timeline = document.getElementById('view-timeline');
-    if (timeline) {
-        timeline.addEventListener('touchstart', e => { 
-            touchStartX = e.changedTouches[0].screenX; 
-            touchStartY = e.changedTouches[0].screenY; 
-        }, false);
-        
-        timeline.addEventListener('touchend', e => { 
-            touchEndX = e.changedTouches[0].screenX; 
-            touchEndY = e.changedTouches[0].screenY; 
-            handleSwipe(); 
-        }, false);
-    }
-
-    // Initial render of the app
-    updateUIStrings();
-    renderDateSelector();
+// Initialize
+document.addEventListener('DOMContentLoaded', async () => {
+    await initFirebase();
+    loadDashboard();
 });
+
+// Expose functions to Window so HTML onclick="" works
+window.createNewTrip = createNewTrip;
+window.deleteTrip = deleteTrip;
+window.openTrip = openTrip;
+window.handleSearch = handleSearch;
+window.changeSort = changeSort;
+window.importDefaultTrip = importDefaultTrip;
+window.backToDashboard = loadDashboard;
+
+window.handleNewEvent = handleNewEvent;
+window.deleteEvent = deleteEvent;
+window.deleteCurrentDay = deleteCurrentDay;
+window.handleTitleSave = handleTitleSave;
+window.switchTab = switchTab;
+window.toggleLang = toggleLang;
+window.showDay = showDay;
+window.openAddModal = openAddModal;
+window.closeAddModal = closeAddModal;
+window.validateTimeField = validateTimeField;

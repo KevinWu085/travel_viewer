@@ -3,13 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2026 Jan London/Spain/Lisbon</title>
+    <title>Travel Viewer</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/style.css">
 
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        
+        // Make these available to your modules
+        window.firebaseImports = { initializeApp, getFirestore, doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc };
+    </script>
+    
     <script>
         tailwind.config = {
             theme: {
@@ -31,103 +39,232 @@
         }
     </script>
 </head>
-<body class="flex flex-col min-h-screen pb-24">
+<body class="flex flex-col min-h-screen bg-bg text-text">
 
-    <header class="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200">
-        <div class="max-w-md mx-auto px-5 py-4 flex justify-between items-center">
-            <div>
-                <p id="ui-tour-label" class="text-[10px] font-bold uppercase tracking-widest text-primary theme-transition">2026 Jan London/Spain/Lisbon</p>
-                <h1 id="app-header-title" class="font-serif text-xl font-bold">The Journey</h1>
-            </div>
-            <button onclick="toggleLang()" class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 theme-transition text-primary font-bold text-xs select-none">
-                <span id="lang-btn-text">繁</span>
-            </button>
-        </div>
+    <section id="dashboard-view" class="p-6 max-w-md mx-auto w-full fade-in">
         
-        <div id="date-scroll-container" class="max-w-md mx-auto px-5 py-3 overflow-x-auto no-scrollbar flex space-x-3">
+        <header class="flex justify-between items-end mb-6 pt-4">
+            <div>
+                <h1 class="font-serif text-3xl font-bold">My Trips</h1>
+                <p class="text-xs text-secondary font-bold uppercase tracking-widest mt-1">Select a journey</p>
             </div>
-    </header>
+            <button onclick="createNewTrip()" class="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wide shadow-lg active:scale-95 transition-transform hover:bg-black">
+                + New Trip
+            </button>
+        </header>
 
-    <main class="max-w-md mx-auto w-full px-5 py-6">
-
-        <div id="city-banner" class="mb-6 fade-in">
-            <div class="bg-primary rounded-3xl p-6 relative overflow-hidden theme-transition shadow-lg">
-                <div class="flex items-center space-x-4 relative z-10">
-                    <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-2xl theme-transition">📍</div>
-                    <div>
-                        <p id="ui-location-label" class="text-[10px] font-bold uppercase tracking-widest text-white/80 leading-none mb-1 theme-transition">Location</p>
-                        <h2 id="current-city-name" class="font-bold text-white text-2xl leading-none theme-transition">London</h2>
-                    </div>
+        <div class="flex flex-col sm:flex-row gap-3 mb-6">
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
                 </div>
-                <div class="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-3xl theme-transition"></div>
+                <input 
+                    type="text" 
+                    id="dashboard-search"
+                    oninput="handleSearch(this.value)"
+                    placeholder="Search trips..." 
+                    class="w-full bg-white border border-black text-text text-sm rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-all shadow-sm placeholder-gray-400 font-bold"
+                >
+            </div>
+
+            <div class="relative min-w-[140px]">
+                <select onchange="changeSort(this.value)" class="w-full appearance-none bg-white border border-black text-secondary text-xs font-bold uppercase tracking-wide py-2.5 pl-4 pr-10 rounded-xl focus:outline-none focus:ring-1 focus:ring-black shadow-sm cursor-pointer transition-all">
+                    <option value="closest">Closest</option>
+                    <option value="alpha">A-Z</option>
+                    <option value="newest">Newest</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-900">
+                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
             </div>
         </div>
 
-        <section id="view-timeline" class="slide-up space-y-5 cursor-grab active:cursor-grabbing select-none touch-pan-y">
-            <div id="day-content-container" class="space-y-4">
-                </div>
-        </section>
+        <div id="trips-list-container" class="space-y-4">
+            <div class="text-center py-10 text-gray-400 text-sm">Loading trips...</div>
+        </div>
+    </section>
 
-        <section id="view-category" class="hidden fade-in space-y-6">
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-300">
-                <h2 id="ui-category-view-title" class="font-serif text-2xl font-bold mb-3">Category View</h2>
-                <p id="ui-category-desc" class="text-secondary text-xs leading-relaxed mb-5">Browse specific types of reservations and activities across the full trip.</p>
-                
-                <div class="relative">
-                    <label id="ui-filter-label" class="text-[10px] font-bold uppercase text-primary tracking-widest block mb-2 px-1 theme-transition">Filter By</label>
-                    <select id="category-select" onchange="renderCategory(this.value)" class="w-full bg-bg border border-gray-300 rounded-xl px-4 py-3 text-sm font-bold text-text focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all theme-transition">
+    <section id="trip-view" class="hidden flex flex-col min-h-screen pb-24">
+        
+        <header class="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200">
+            <div class="max-w-md mx-auto px-5 py-4 flex justify-between items-center">
+                <button onclick="backToDashboard()" class="mr-3 text-2xl text-secondary hover:text-primary transition-colors">
+                    ←
+                </button>
+
+                <div class="flex-grow mr-4">
+                    <input 
+                        type="text" 
+                        id="trip-title-input" 
+                        value=""
+                        oninput="document.title = this.value.toUpperCase()" 
+                        onblur="handleTitleSave(this)"
+                        onkeydown="if(event.key === 'Enter') this.blur()"
+                        class="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary rounded px-1 -ml-1 text-[10px] font-bold uppercase tracking-widest text-primary theme-transition outline-none transition-all placeholder-primary/50"
+                        placeholder="Name your trip..."
+                    >
+                    <h1 id="app-header-title" class="font-serif text-xl font-bold">The Journey</h1>
+                </div>
+                <button onclick="toggleLang()" class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 theme-transition text-primary font-bold text-xs select-none flex-shrink-0">
+                    <span id="lang-btn-text">繁</span>
+                </button>
+            </div>
+            
+            <div id="date-scroll-container" class="max-w-md mx-auto px-5 py-3 overflow-x-auto no-scrollbar flex space-x-3">
+            </div>
+        </header>
+
+        <main class="max-w-md mx-auto w-full px-5 py-6 flex-grow">
+
+            <div id="city-banner" class="mb-6 fade-in">
+                <div class="bg-primary rounded-3xl p-6 relative overflow-hidden theme-transition shadow-lg group">
+                    <button onclick="deleteCurrentDay()" class="absolute top-4 right-4 z-20 bg-black/20 hover:bg-red-500/80 text-white/70 hover:text-white p-2 rounded-full backdrop-blur-sm transition-all active:scale-90">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+
+                    <div class="flex items-center space-x-4 relative z-10">
+                        <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-2xl theme-transition">📍</div>
+                        <div>
+                            <p id="ui-location-label" class="text-[10px] font-bold uppercase tracking-widest text-white/80 leading-none mb-1 theme-transition">Location</p>
+                            <h2 id="current-city-name" class="font-bold text-white text-2xl leading-none theme-transition">London</h2>
+                        </div>
+                    </div>
+                    <div class="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-3xl theme-transition"></div>
+                </div>
+            </div>
+
+            <section id="view-timeline" class="slide-up space-y-5 cursor-grab active:cursor-grabbing select-none touch-pan-y">
+                <div id="day-content-container" class="space-y-4">
+                </div>
+            </section>
+
+            <section id="view-category" class="hidden fade-in space-y-6">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-300">
+                    <h2 id="ui-category-view-title" class="font-serif text-2xl font-bold mb-3">Category View</h2>
+                    <p id="ui-category-desc" class="text-secondary text-xs leading-relaxed mb-5">Browse specific types of reservations and activities across the full trip.</p>
+                    
+                    <div class="relative">
+                        <label id="ui-filter-label" class="text-[10px] font-bold uppercase text-primary tracking-widest block mb-2 px-1 theme-transition">Filter By</label>
+                        <select id="category-select" onchange="renderCategory(this.value)" class="w-full bg-bg border border-gray-300 rounded-xl px-4 py-3 text-sm font-bold text-text focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all theme-transition">
                         </select>
-                </div>
-            </div>
-
-            <div id="category-results" class="space-y-4">
-                </div>
-        </section>
-
-        <section id="view-memos" class="hidden fade-in space-y-6">
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-300">
-                <h2 id="ui-memos-title" class="font-serif text-2xl font-bold mb-2">Group Memos</h2>
-                <p id="ui-memos-desc" class="text-secondary text-xs mb-6">Shared space for notes and group reminders.</p>
-                
-                <div class="bg-bg border border-gray-300 rounded-2xl p-5 mb-4">
-                    <div class="flex items-center space-x-4 mb-4">
-                        <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-lg">📄</div>
-                        <div class="flex-grow">
-                            <h4 id="ui-gdoc-title" class="font-bold text-sm">Shared Google Doc</h4>
-                            <p id="ui-gdoc-sub" class="text-[10px] text-secondary">Real-time collaborative notes</p>
-                        </div>
-                        <a id="ui-gdoc-btn" href="https://docs.google.com/document/u/0/" target="_blank" class="bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-lg shadow-md active:scale-95 transition-all uppercase theme-transition">Open</a>
                     </div>
                 </div>
 
-                <div class="space-y-3">
-                    <h4 id="ui-reminders-label" class="text-[10px] font-bold uppercase tracking-widest text-primary px-1 theme-transition">📌 Reminders</h4>
-                    <div id="ui-reminders-list" class="bg-surface border border-gray-300 rounded-2xl p-4 shadow-sm">
+                <div id="category-results" class="space-y-4">
+                </div>
+            </section>
+
+            <section id="view-memos" class="hidden fade-in space-y-6">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-300">
+                    <h2 id="ui-memos-title" class="font-serif text-2xl font-bold mb-2">Group Memos</h2>
+                    <p id="ui-memos-desc" class="text-secondary text-xs mb-6">Shared space for notes and group reminders.</p>
+                    
+                    <div class="bg-bg border border-gray-300 rounded-2xl p-5 mb-4">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-lg">📄</div>
+                            <div class="flex-grow">
+                                <h4 id="ui-gdoc-title" class="font-bold text-sm">Shared Google Doc</h4>
+                                <p id="ui-gdoc-sub" class="text-[10px] text-secondary">Real-time collaborative notes</p>
+                            </div>
+                            <a id="ui-gdoc-btn" href="https://docs.google.com/document/u/0/" target="_blank" class="bg-primary text-white text-[10px] font-bold px-4 py-2 rounded-lg shadow-md active:scale-95 transition-all uppercase theme-transition">Open</a>
                         </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h4 id="ui-reminders-label" class="text-[10px] font-bold uppercase tracking-widest text-primary px-1 theme-transition">📌 Reminders</h4>
+                        <div id="ui-reminders-list" class="bg-surface border border-gray-300 rounded-2xl p-4 shadow-sm">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="fixed bottom-24 right-5 z-40 group flex items-center justify-end">
+                <span class="mr-3 px-3 py-1.5 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-wide rounded-lg shadow-xl opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap">
+                    Add Activity
+                </span>
+                <button onclick="openAddModal()" class="w-12 h-12 bg-gray-900 text-white rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-90 transition-transform">
+                    +
+                </button>
+            </div>
+
+            <div id="add-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center fade-in">
+                <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl slide-up max-h-[75vh] overflow-y-auto pb-32">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-xl font-bold font-serif">Add New Event</h3>
+                        <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600 p-2">✕</button>
+                    </div>
+                    
+                    <form id="add-event-form" onsubmit="handleNewEvent(event)" class="space-y-2">
+                        <div class="flex space-x-3">
+                            <div class="w-1/2">
+                                <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Date</label>
+                                <input type="date" id="new-date-picker" required class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">City</label>
+                                <input type="text" id="new-city" placeholder="e.g. London" required class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary">
+                            </div>
+                        </div>
+                        <div class="flex space-x-3">
+                            <div class="w-1/2">
+                                <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Type</label>
+                                <select id="new-type" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-sm font-bold appearance-none">
+                                    <option value="dining">🍽️ Meal</option>
+                                    <option value="activity">🎨 Activity</option>
+                                    <option value="flight">✈️ Flight</option>
+                                    <option value="hotel">🏨 Hotel</option>
+                                    <option value="transfer">🚙 Transfer</option>
+                                </select>
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Time</label>
+                                <input type="text" id="new-time" onblur="validateTimeField(this)" placeholder="e.g. 07:00 PM" required class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary">
+                                <p id="time-error-msg" class="hidden text-red-500 text-[10px] mt-1 font-bold ml-1"></p>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Title</label>
+                            <input type="text" id="new-title" placeholder="e.g. Dinner at Savoy" required class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-secondary uppercase tracking-wider mb-1">Details</label>
+                            <input type="text" id="new-details" placeholder="e.g. Reservation confirmed" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        <button type="submit" class="w-full bg-gray-900 text-white font-bold py-3 rounded-xl shadow-lg mt-3 active:scale-95 transition-transform">
+                            Save Event
+                        </button>
+                    </form>
                 </div>
             </div>
-        </section>
 
-    </main>
+        </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 z-50">
-        <div class="max-w-md mx-auto flex justify-around items-center px-4 py-3">
-            <button onclick="switchTab('timeline')" id="nav-timeline" class="flex flex-col items-center space-y-1 active-nav transition-all theme-transition">
-                <div class="text-2xl">🗓️</div>
-                <span id="ui-nav-journey" class="text-[10px] font-bold uppercase tracking-tighter">Journey</span>
-            </button>
-            <button onclick="switchTab('category')" id="nav-category" class="flex flex-col items-center space-y-1 text-gray-400 transition-all theme-transition">
-                <div class="text-2xl">📂</div>
-                <span id="ui-nav-category" class="text-[10px] font-bold uppercase tracking-tighter">Category</span>
-            </button>
-            <button onclick="switchTab('memos')" id="nav-memos" class="flex flex-col items-center space-y-1 text-gray-400 transition-all theme-transition">
-                <div class="text-2xl">✍️</div>
-                <span id="ui-nav-memos" class="text-[10px] font-bold uppercase tracking-tighter">Memos</span>
-            </button>
-        </div>
-    </nav>
+        <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 z-50">
+            <div class="max-w-md mx-auto flex justify-around items-center px-4 py-3">
+                <button onclick="switchTab('timeline')" id="nav-timeline" class="flex flex-col items-center space-y-1 active-nav transition-all theme-transition">
+                    <div class="text-2xl">🗓️</div>
+                    <span id="ui-nav-journey" class="text-[10px] font-bold uppercase tracking-tighter">Journey</span>
+                </button>
+                <button onclick="switchTab('category')" id="nav-category" class="flex flex-col items-center space-y-1 text-gray-400 transition-all theme-transition">
+                    <div class="text-2xl">📂</div>
+                    <span id="ui-nav-category" class="text-[10px] font-bold uppercase tracking-tighter">Category</span>
+                </button>
+                <button onclick="switchTab('memos')" id="nav-memos" class="flex flex-col items-center space-y-1 text-gray-400 transition-all theme-transition">
+                    <div class="text-2xl">✍️</div>
+                    <span id="ui-nav-memos" class="text-[10px] font-bold uppercase tracking-tighter">Memos</span>
+                </button>
+            </div>
+        </nav>
+    </section>
 
     <script src="js/data.js"></script>
-    <script src="js/app.js"></script>
+    
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>

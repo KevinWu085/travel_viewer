@@ -493,6 +493,7 @@ function deleteEvent(event, dayIdx, evtIdx) {
     renderDateSelector(); 
     if (activeTripData.length > 0) showDay(currentDayIndex);
 }
+window.deleteCurrentDay = deleteCurrentDay;
 
 function deleteCurrentDay() {
     if (activeTripData.length === 0) return;

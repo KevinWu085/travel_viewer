@@ -67,7 +67,7 @@ function initTripView() {
     enableDragScroll(); 
 }
 
-// --- 👇 FIXED FUNCTION: Removed extra emojis ---
+// --- 👇 FIXED FUNCTION: Removed extra manual emojis ---
 function updateUIStrings() {
     const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
     
@@ -99,7 +99,7 @@ function updateUIStrings() {
         else headerTitle.innerText = t.memos;
     }
 
-    // 👇 FIXED: Removed the extra emojis here because ${f}, ${h} etc already contain them from data.js
+    // 👇 DROPDOWN FIX: Just use ${f}, don't add "✈️" before it
     const sel = document.getElementById('category-select');
     if (sel) {
         const currentVal = sel.value || 'flight';

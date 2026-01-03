@@ -1,11 +1,17 @@
 // js/app.js
 import { initFirebase } from './firebase-config.js';
-import { loadDashboard, createNewTrip, deleteTrip, openTrip, handleSearch, changeSort, importDefaultTrip } from './dashboard.js';
+
+// 👇 REMOVED openTrip from here
+import { loadDashboard, createNewTrip, deleteTrip, handleSearch, changeSort, importDefaultTrip } from './dashboard.js';
+
+// 👇 ADDED openTrip here
 import { 
+    openTrip, 
     handleNewEvent, deleteEvent, deleteCurrentDay, 
     handleTitleSave, switchTab, toggleLang, showDay,
     openAddModal, closeAddModal 
 } from './trip.js';
+
 import { validateTimeField } from './utils.js';
 
 // Initialize
@@ -17,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Expose functions to Window so HTML onclick="" works
 window.createNewTrip = createNewTrip;
 window.deleteTrip = deleteTrip;
-window.openTrip = openTrip;
+window.openTrip = openTrip; // Now correctly imported from trip.js
 window.handleSearch = handleSearch;
 window.changeSort = changeSort;
 window.importDefaultTrip = importDefaultTrip;

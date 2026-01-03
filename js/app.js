@@ -39,10 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         onSnapshot(tripDocRef, (docSnapshot) => {
             if (docSnapshot.exists()) {
                 const data = docSnapshot.data();
-                console.log("Cloud update received");
-                
                 if (data.days) activeTripData = data.days;
-                
                 if (data.tripTitle) {
                     currentTripTitle = data.tripTitle;
                     document.title = currentTripTitle.toUpperCase();
@@ -63,7 +60,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateUIStrings();
     renderDateSelector();
-    enableDragScroll(); // 👈 NEW: Enable drag scrolling
+    
+    // 👇 ACTIVATE DRAG SCROLLING 👇
+    enableDragScroll(); 
     
     const timeline = document.getElementById('view-timeline');
     if (timeline) {
@@ -80,17 +79,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function saveToCloud() {
-    if (!tripDocRef || !window.firebaseImports) {
-        console.warn("Firebase not connected, saving locally only.");
-        return;
-    }
+    if (!tripDocRef || !window.firebaseImports) return;
     const { setDoc } = window.firebaseImports;
     try {
         await setDoc(tripDocRef, { 
             days: activeTripData,
             tripTitle: currentTripTitle 
         });
-        console.log("Saved to cloud successfully.");
     } catch (e) {
         console.error("Error saving:", e);
     }
@@ -166,36 +161,44 @@ function validateTimeField(inputElement) {
 function updateUIStrings() {
     const t = translations[currentLang];
     
-    if(document.getElementById('ui-location-label')) document.getElementById('ui-location-label').innerText = t.location;
-    if(document.getElementById('lang-btn-text')) document.getElementById('lang-btn-text').innerText = t.langToggle;
-    if(document.getElementById('ui-category-view-title')) document.getElementById('ui-category-view-title').innerText = t.categoryView;
-    if(document.getElementById('ui-category-desc')) document.getElementById('ui-category-desc').innerText = t.categoryDesc;
-    if(document.getElementById('ui-filter-label')) document.getElementById('ui-filter-label').innerText = t.filterBy;
-    if(document.getElementById('ui-memos-title')) document.getElementById('ui-memos-title').innerText = t.memos;
-    if(document.getElementById('ui-memos-desc')) document.getElementById('ui-memos-desc').innerText = t.memosDesc;
-    if(document.getElementById('ui-gdoc-title')) document.getElementById('ui-gdoc-title').innerText = t.gdocTitle;
-    if(document.getElementById('ui-gdoc-sub')) document.getElementById('ui-gdoc-sub').innerText = t.gdocSub;
-    if(document.getElementById('ui-gdoc-btn')) document.getElementById('ui-gdoc-btn').innerText = t.open;
-    if(document.getElementById('ui-reminders-label')) document.getElementById('ui-reminders-label').innerText = t.reminders;
-    if(document.getElementById('ui-reminders-list')) document.getElementById('ui-reminders-list').innerHTML = t.remindersContent;
-    if(document.getElementById('ui-nav-journey')) document.getElementById('ui-nav-journey').innerText = t.journey;
-    if(document.getElementById('ui-nav-category')) document.getElementById('ui-nav-category').innerText = t.category;
-    if(document.getElementById('ui-nav-memos')) document.getElementById('ui-nav-memos').innerText = t.memos;
+    // Safety checks for elements
+    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
+    const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
+
+    setTxt('ui-location-label', t.location);
+    setTxt('lang-btn-text', t.langToggle);
+    setTxt('ui-category-view-title', t.categoryView);
+    setTxt('ui-category-desc', t.categoryDesc);
+    setTxt('ui-filter-label', t.filterBy);
+    setTxt('ui-memos-title', t.memos);
+    setTxt('ui-memos-desc', t.memosDesc);
+    setTxt('ui-gdoc-title', t.gdocTitle);
+    setTxt('ui-gdoc-sub', t.gdocSub);
+    setTxt('ui-gdoc-btn', t.open);
+    setTxt('ui-reminders-label', t.reminders);
+    setHtml('ui-reminders-list', t.remindersContent);
+    setTxt('ui-nav-journey', t.journey);
+    setTxt('ui-nav-category', t.category);
+    setTxt('ui-nav-memos', t.memos);
 
     const headerTitle = document.getElementById('app-header-title');
-    if (currentTab === 'timeline') headerTitle.innerText = t.journey;
-    else if (currentTab === 'category') headerTitle.innerText = t.category;
-    else headerTitle.innerText = t.memos;
+    if (headerTitle) {
+        if (currentTab === 'timeline') headerTitle.innerText = t.journey;
+        else if (currentTab === 'category') headerTitle.innerText = t.category;
+        else headerTitle.innerText = t.memos;
+    }
 
     const sel = document.getElementById('category-select');
-    const currentVal = sel.value || 'flight';
-    sel.innerHTML = `
-        <option value="flight">${t.catFlights}</option>
-        <option value="hotel">${t.catHotels}</option>
-        <option value="dining">${t.catMeals}</option>
-        <option value="activity">${t.catTours}</option>
-    `;
-    sel.value = currentVal;
+    if (sel) {
+        const currentVal = sel.value || 'flight';
+        sel.innerHTML = `
+            <option value="flight">${t.catFlights}</option>
+            <option value="hotel">${t.catHotels}</option>
+            <option value="dining">${t.catMeals}</option>
+            <option value="activity">${t.catTours}</option>
+        `;
+        sel.value = currentVal;
+    }
 }
 
 // --- Event Actions ---
@@ -282,41 +285,27 @@ function deleteEvent(event, dayIdx, evtIdx) {
     }
 
     saveToCloud();
-    renderDateSelector(); // Force refresh pills
+    renderDateSelector(); 
     if (activeTripData.length > 0) showDay(currentDayIndex);
 }
 
 function deleteCurrentDay() {
-    console.log("Delete button clicked");
-    
-    // 1. Safety Checks
     if (activeTripData.length === 0) return;
     const currentDay = activeTripData[currentDayIndex];
-    if (!currentDay) {
-        console.error("No current day found");
-        return;
-    }
+    if (!currentDay) return;
 
-    // 2. Confirm with User
     const msg = `Are you sure you want to delete EVERYTHING for ${currentDay.display} (${currentDay.city})?\n\nThis cannot be undone.`;
-    if (!confirm(msg)) {
-        console.log("Deletion cancelled by user");
-        return;
-    }
+    if (!confirm(msg)) return;
 
-    // 3. Remove the day
     activeTripData.splice(currentDayIndex, 1);
 
-    // 4. Adjust Index
     if (currentDayIndex >= activeTripData.length) {
         currentDayIndex = Math.max(0, activeTripData.length - 1);
     }
 
-    // 5. Save and Render
     saveToCloud();
     renderDateSelector();
     
-    // Handle empty state
     if (activeTripData.length === 0) {
         document.getElementById('day-content-container').innerHTML = 
             `<div class="text-center text-gray-400 mt-10 text-sm">No days planned.<br>Click "+" to add one.</div>`;
@@ -328,16 +317,17 @@ function deleteCurrentDay() {
 }
 window.deleteCurrentDay = deleteCurrentDay;
 
-
 // --- Rendering ---
 
 function renderDateSelector() {
     const container = document.getElementById('date-scroll-container');
+    if (!container) return;
+    
     container.innerHTML = activeTripData.map((d, i) => `
         <button onclick="showDay(${i})" id="date-pill-${i}" 
-            class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition">
-            <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60">${currentLang === 'en' ? d.day : d.dayZh}</div>
-            <div class="date-maintext text-sm font-bold text-text">${d.display}</div>
+            class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition select-none">
+            <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60 pointer-events-none">${currentLang === 'en' ? d.day : d.dayZh}</div>
+            <div class="date-maintext text-sm font-bold text-text pointer-events-none">${d.display}</div>
         </button>
     `).join('');
     
@@ -483,7 +473,7 @@ function handleSwipe() {
     }
 }
 
-// --- 👇 NEW FUNCTION: DRAG SCROLLING 👇 ---
+// --- 👇 REVISED DRAG SCROLL LOGIC 👇 ---
 function enableDragScroll() {
     const slider = document.getElementById('date-scroll-container');
     if (!slider) return;
@@ -493,47 +483,50 @@ function enableDragScroll() {
     let scrollLeft;
     let isDragging = false; 
 
+    // Apply Styles to allow grab cursor
+    slider.style.cursor = 'grab';
+    slider.style.userSelect = 'none'; // Prevents text highlighting
+
     slider.addEventListener('mousedown', (e) => {
         isDown = true;
-        isDragging = false;
+        isDragging = false; // Reset drag status on new click
         slider.style.cursor = 'grabbing';
         startX = e.pageX - slider.offsetLeft;
         scrollLeft = slider.scrollLeft;
+        // e.preventDefault(); // Optional: helps in some browsers
     });
 
     slider.addEventListener('mouseleave', () => {
         isDown = false;
-        isDragging = false;
         slider.style.cursor = 'grab';
     });
 
-    slider.addEventListener('mouseup', (e) => {
+    slider.addEventListener('mouseup', () => {
         isDown = false;
         slider.style.cursor = 'grab';
-        
-        // Prevent click if we were dragging
-        if (isDragging) {
-             const preventClick = (eClick) => {
-                eClick.preventDefault();
-                eClick.stopPropagation();
-            };
-            slider.addEventListener('click', preventClick, { once: true, capture: true });
-        }
-        isDragging = false;
     });
 
     slider.addEventListener('mousemove', (e) => {
         if (!isDown) return;
-        e.preventDefault();
+        
+        e.preventDefault(); // Stop text selection
         const x = e.pageX - slider.offsetLeft;
         const walk = (x - startX) * 2; // Scroll speed
         
+        // Only consider it a drag if moved more than 5 pixels
         if (Math.abs(walk) > 5) {
             isDragging = true;
+            slider.scrollLeft = scrollLeft - walk;
         }
-        
-        slider.scrollLeft = scrollLeft - walk;
     });
 
-    slider.style.cursor = 'grab';
+    // Capture click events on the container before they reach the buttons
+    slider.addEventListener('click', (e) => {
+        if (isDragging) {
+            // If we were dragging, kill the click!
+            e.preventDefault();
+            e.stopPropagation();
+            isDragging = false; // Reset for next time
+        }
+    }, true); // 'true' uses Capture Phase (happens before bubble)
 }

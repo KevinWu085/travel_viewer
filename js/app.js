@@ -1,5 +1,5 @@
 /* * APP LOGIC FILE
- * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + DASHBOARD
+ * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + DASHBOARD + SORTING
  */
 
 // --- Global State ---
@@ -10,6 +10,7 @@ let activeTripData = [];
 let currentTripTitle = "Trip"; 
 let currentTripId = null; 
 let unsubscribeTripListener = null; 
+let currentSort = 'closest'; // Default sort order
 
 // --- 👇 FIREBASE CONFIG 👇 ---
 const firebaseConfig = {
@@ -57,7 +58,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadDashboard();
     } else {
         console.warn("Firebase imports timed out. Loading default view.");
-        // Fallback if offline
         if (typeof tripData !== 'undefined') activeTripData = tripData;
         document.getElementById('dashboard-view').classList.add('hidden');
         document.getElementById('trip-view').classList.remove('hidden');
@@ -66,6 +66,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- DASHBOARD LOGIC ---
+
+function changeSort(sortType) {
+    currentSort = sortType;
+    loadDashboard(); // Reload to re-sort
+}
 
 async function loadDashboard() {
     document.getElementById('dashboard-view').classList.remove('hidden');
@@ -89,12 +94,11 @@ async function loadDashboard() {
     
     try {
         const querySnapshot = await getDocs(collection(db, "trips"));
-        const trips = [];
+        let trips = [];
         querySnapshot.forEach((doc) => {
             trips.push({ id: doc.id, ...doc.data() });
         });
 
-        // 👇 IF EMPTY: Show Import Button
         if (trips.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-300">
@@ -105,6 +109,31 @@ async function loadDashboard() {
                 </div>`;
             return;
         }
+
+        // 👇 SORTING LOGIC 👇
+        trips.sort((a, b) => {
+            if (currentSort === 'alpha') {
+                const titleA = (a.tripTitle || "").toLowerCase();
+                const titleB = (b.tripTitle || "").toLowerCase();
+                return titleA.localeCompare(titleB);
+            } 
+            else if (currentSort === 'newest') {
+                // Sort by creation time (descending). Fallback to 0 if undefined.
+                return (b.createdAt || 0) - (a.createdAt || 0);
+            } 
+            else if (currentSort === 'closest') {
+                // Helper to get distance from today
+                const getDist = (t) => {
+                    if (!t.days || t.days.length === 0) return Infinity; // No dates = far away
+                    // Use the first day as the "Start Date"
+                    // Ensure dates are sorted first? Usually they are saved sorted.
+                    const startDate = new Date(t.days[0].date);
+                    return Math.abs(startDate - new Date());
+                };
+                return getDist(a) - getDist(b);
+            }
+            return 0;
+        });
 
         container.innerHTML = trips.map(trip => `
             <div class="bg-white rounded-3xl p-5 shadow-sm border border-gray-200 active:scale-95 transition-transform relative group overflow-hidden">
@@ -130,7 +159,6 @@ async function loadDashboard() {
     }
 }
 
-// 👇 NEW FUNCTION: Import Data from data.js to Cloud
 async function importDefaultTrip() {
     const { collection, addDoc } = window.firebaseImports;
     
@@ -145,10 +173,11 @@ async function importDefaultTrip() {
 
         await addDoc(collection(db, "trips"), {
             tripTitle: "2026 Jan London/Spain/Lisbon", 
-            days: tripData 
+            days: tripData,
+            createdAt: Date.now() // Add creation time
         });
         
-        loadDashboard(); // Refresh to show the new card
+        loadDashboard(); 
     } catch(e) {
         console.error(e);
         alert("Error importing: " + e.message);
@@ -163,7 +192,8 @@ async function createNewTrip() {
     try {
         await addDoc(collection(db, "trips"), {
             tripTitle: title,
-            days: [] 
+            days: [],
+            createdAt: Date.now() // Add creation time
         });
         loadDashboard(); 
     } catch (e) {
@@ -465,232 +495,7 @@ function deleteCurrentDay() {
     }
 }
 window.deleteCurrentDay = deleteCurrentDay;
-
-function renderDateSelector() {
-    const container = document.getElementById('date-scroll-container');
-    if (!container) return;
-    
-    if (activeTripData.length === 0) {
-        container.innerHTML = "";
-        return;
-    }
-
-    container.innerHTML = activeTripData.map((d, i) => `
-        <button onclick="showDay(${i})" id="date-pill-${i}" 
-            class="date-pill flex-shrink-0 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-center transition-all theme-transition select-none">
-            <div class="date-subtext text-[10px] font-bold uppercase text-secondary opacity-60 pointer-events-none">${currentLang === 'en' ? d.day : d.dayZh}</div>
-            <div class="date-maintext text-sm font-bold text-text pointer-events-none">${d.display}</div>
-        </button>
-    `).join('');
-    
-    if(activeTripData.length > 0 && !activeTripData[currentDayIndex]) {
-        currentDayIndex = 0; // Reset if out of bounds
-        showDay(0);
-    }
-}
-
-function generateEventCard(e, dayIdx, evtIdx) {
-    const t = translations[currentLang];
-    const mapButton = e.mapUrl ? `
-        <a href="${e.mapUrl}" target="_blank" class="mt-3 inline-flex items-center space-x-1 py-1 px-3 bg-primary/10 rounded-md border border-primary/30 text-primary theme-transition active:scale-95 transition-all">
-            <span class="text-[10px] font-bold uppercase tracking-widest">${t.map}</span>
-            <span class="text-[10px]">📍</span>
-        </a>
-    ` : '';
-    const shouldRenderSub = e.sub && e.sub !== "User Added";
-
-    return `
-        <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start active:scale-95 transition-transform slide-up relative group">
-            <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-2 right-2 bg-red-50 text-red-500 rounded-full p-2 hover:bg-red-100 hover:scale-110 z-20 transition-all shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-            <div class="w-12 h-12 rounded-2xl ${colors[e.type] || 'bg-gray-50'} flex items-center justify-center text-xl flex-shrink-0">
-                ${icons[e.type] || '📍'}
-            </div>
-            <div class="flex-grow pr-8"> <div class="flex justify-between items-center mb-1">
-                    <span class="text-[10px] font-bold uppercase tracking-widest text-secondary opacity-50">${e.type}</span>
-                    <span class="text-xs font-bold text-primary theme-transition">${e.time}</span>
-                </div>
-                <h3 class="font-bold text-lg leading-tight">${currentLang === 'en' ? e.title : (e.titleZh || e.title)}</h3>
-                <p class="text-xs text-secondary mt-1">${e.details}</p>
-                <div class="flex flex-wrap items-center gap-2">
-                    ${shouldRenderSub ? `<div class="mt-3 text-[10px] py-1 px-2 bg-gray-50 inline-block rounded-md border border-gray-300 font-bold text-secondary uppercase">${e.sub}</div>` : ''}
-                    ${mapButton}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function showDay(idx) {
-    if (activeTripData.length === 0) {
-        document.getElementById('day-content-container').innerHTML = 
-            `<div class="text-center text-gray-400 mt-10 text-sm">No days planned.<br>Click "+" to add one.</div>`;
-        document.getElementById('current-city-name').innerText = "Journey";
-        return;
-    }
-
-    if (idx >= activeTripData.length) idx = activeTripData.length - 1;
-    if (idx < 0) idx = 0;
-    
-    currentDayIndex = idx;
-    document.querySelectorAll('.date-pill').forEach(p => p.classList.remove('date-pill-active'));
-    const activeBtn = document.getElementById(`date-pill-${idx}`);
-    if (activeBtn) {
-        activeBtn.classList.add('date-pill-active');
-        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-    const day = activeTripData[idx];
-    if(day) {
-        updateTheme(day.city);
-        document.getElementById('current-city-name').innerText = currentLang === 'en' ? day.city : day.cityZh;
-        const container = document.getElementById('day-content-container');
-        container.innerHTML = day.events.map((e, evtIdx) => generateEventCard(e, idx, evtIdx)).join('');
-    }
-}
-
-function switchTab(tabId) {
-    currentTab = tabId;
-    const sections = ['timeline', 'category', 'memos'];
-    sections.forEach(id => {
-        document.getElementById(`view-${id}`).classList.toggle('hidden', id !== tabId);
-        const nav = document.getElementById(`nav-${id}`);
-        if(nav) {
-            nav.classList.toggle('active-nav', id === tabId);
-            nav.classList.toggle('text-gray-400', id !== tabId);
-        }
-    });
-    
-    const header = document.getElementById('app-header-title');
-    const scroller = document.getElementById('date-scroll-container');
-    const banner = document.getElementById('city-banner');
-    const t = translations[currentLang];
-    
-    if (tabId === 'timeline') { 
-        header.innerText = t.journey; 
-        scroller.classList.remove('hidden'); 
-        banner.classList.remove('hidden');
-        if(activeTripData[currentDayIndex]) updateTheme(activeTripData[currentDayIndex].city);
-    } else {
-        scroller.classList.add('hidden');
-        banner.classList.add('hidden');
-        updateTheme("Transit");
-        if (tabId === 'category') {
-            header.innerText = t.category;
-            renderCategory(document.getElementById('category-select').value);
-        }
-        if (tabId === 'memos') header.innerText = t.memos;
-    }
-}
-
-function renderCategory(category) {
-    const container = document.getElementById('category-results');
-    const items = [];
-    activeTripData.forEach((day, dayIdx) => {
-        day.events.forEach((e, evtIdx) => {
-            if (e.type === category) {
-                const t = translations[currentLang];
-                const shouldRenderSub = e.sub && e.sub !== "User Added";
-                items.push(`
-                    <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start fade-in relative group">
-                        <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-2 right-2 bg-red-50 text-red-500 rounded-full p-2 hover:bg-red-100 hover:scale-110 z-20 transition-all shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                        <div class="w-10 h-10 rounded-xl ${colors[category]} flex items-center justify-center text-lg flex-shrink-0">${icons[category]}</div>
-                        <div class="flex-grow pr-8">
-                            <div class="flex justify-between items-center mb-1">
-                                <p class="text-[10px] font-bold text-primary theme-transition uppercase">${currentLang === 'en' ? day.day : day.dayZh} ${day.display} • ${currentLang === 'en' ? day.city : day.cityZh}</p>
-                                <span class="text-[10px] font-bold text-secondary opacity-60">${e.time}</span>
-                            </div>
-                            <h4 class="font-bold text-sm leading-tight">${currentLang === 'en' ? e.title : (e.titleZh || e.title)}</h4>
-                            <p class="text-[11px] text-secondary mt-1">${e.details}</p>
-                            <div class="flex flex-wrap items-center gap-2">
-                                ${shouldRenderSub ? `<p class="text-[10px] text-primary theme-transition mt-1 font-bold">${e.sub}</p>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                `);
-            }
-        });
-    });
-    container.innerHTML = items.length ? items.join('') : `<p class="text-center text-secondary text-xs p-8 italic">No items found.</p>`;
-}
-
-function handleSwipe() {
-    if (currentTab !== 'timeline') return;
-    const xDiff = touchEndX - touchStartX;
-    const yDiff = touchEndY - touchStartY;
-    if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 50) {
-        if (xDiff < 0) { 
-            if (currentDayIndex < activeTripData.length - 1) showDay(currentDayIndex + 1); 
-        } else { 
-            if (currentDayIndex > 0) showDay(currentDayIndex - 1); 
-        }
-    }
-}
-
-function enableDragScroll() {
-    const slider = document.getElementById('date-scroll-container');
-    if (!slider) return;
-
-    let isDown = false;
-    let startX;
-    let scrollLeft;
-    let isDragging = false; 
-
-    // Styles for grab cursor and NO TEXT SELECTION
-    slider.style.cursor = 'grab';
-    slider.style.userSelect = 'none'; 
-    slider.style.webkitUserSelect = 'none';
-
-    slider.addEventListener('mousedown', (e) => {
-        isDown = true;
-        isDragging = false; 
-        slider.style.cursor = 'grabbing';
-        
-        e.preventDefault(); 
-        slider.style.scrollBehavior = 'auto';
-
-        startX = e.pageX - slider.offsetLeft;
-        scrollLeft = slider.scrollLeft;
-    });
-
-    slider.addEventListener('mouseleave', () => {
-        isDown = false;
-        slider.style.cursor = 'grab';
-        slider.style.scrollBehavior = 'smooth';
-    });
-
-    slider.addEventListener('mouseup', () => {
-        isDown = false;
-        slider.style.cursor = 'grab';
-        slider.style.scrollBehavior = 'smooth';
-    });
-
-    slider.addEventListener('mousemove', (e) => {
-        if (!isDown) return;
-        
-        e.preventDefault(); 
-        const x = e.pageX - slider.offsetLeft;
-        const walk = (x - startX); 
-        
-        if (Math.abs(walk) > 3) {
-            isDragging = true;
-            slider.scrollLeft = scrollLeft - walk;
-        }
-    });
-
-    slider.addEventListener('click', (e) => {
-        if (isDragging) {
-            e.preventDefault();
-            e.stopPropagation();
-            isDragging = false; 
-        }
-    }, true); 
-}
-// Attach dashboard functions to window
+window.changeSort = changeSort;
 window.createNewTrip = createNewTrip;
 window.deleteTrip = deleteTrip;
 window.openTrip = openTrip;

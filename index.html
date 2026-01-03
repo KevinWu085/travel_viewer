@@ -12,10 +12,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // Added: collection, addDoc, getDocs, deleteDoc
         import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         
-        // Make these available to your app.js
         window.firebaseImports = { initializeApp, getFirestore, doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc };
     </script>
     
@@ -43,15 +41,30 @@
 <body class="flex flex-col min-h-screen bg-bg text-text">
 
     <section id="dashboard-view" class="p-6 max-w-md mx-auto w-full fade-in">
-        <header class="flex justify-between items-center mb-8 pt-4">
-            <div>
-                <h1 class="font-serif text-3xl font-bold">My Trips</h1>
-                <p class="text-xs text-secondary font-bold uppercase tracking-widest mt-1">Select a journey</p>
+        <header class="flex flex-col space-y-4 mb-8 pt-4">
+            <div class="flex justify-between items-end">
+                <div>
+                    <h1 class="font-serif text-3xl font-bold">My Trips</h1>
+                    <p class="text-xs text-secondary font-bold uppercase tracking-widest mt-1">Select a journey</p>
+                </div>
+                <button onclick="createNewTrip()" class="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide shadow-lg active:scale-95 transition-transform">
+                    + New
+                </button>
             </div>
-            <button onclick="createNewTrip()" class="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide shadow-lg active:scale-95 transition-transform">
-                + New Trip
-            </button>
-        </header>
+
+            <div class="flex justify-end">
+                <div class="relative inline-block text-left w-full sm:w-auto">
+                    <select onchange="changeSort(this.value)" class="w-full sm:w-auto appearance-none bg-white border border-gray-200 text-secondary py-2 pl-3 pr-8 rounded-lg text-xs font-bold uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm">
+                        <option value="closest">Closest to Today</option>
+                        <option value="alpha">Alphabetical (A-Z)</option>
+                        <option value="newest">Newest Created</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                        <svg class="h-3 w-3 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    </div>
+                </div>
+            </div>
+            </header>
 
         <div id="trips-list-container" class="space-y-4">
             <div class="text-center py-10 text-gray-400 text-sm">Loading trips...</div>
@@ -62,9 +75,7 @@
         
         <header class="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200">
             <div class="max-w-md mx-auto px-5 py-4 flex justify-between items-center">
-                <button onclick="backToDashboard()" class="mr-3 text-2xl text-secondary hover:text-primary transition-colors">
-                    ←
-                </button>
+                <button onclick="backToDashboard()" class="mr-3 text-2xl text-secondary hover:text-primary transition-colors">←</button>
 
                 <div class="flex-grow mr-4">
                     <input 

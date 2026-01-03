@@ -16,6 +16,7 @@ let unsubscribeListener = null;
 // --- Initialization ---
 
 export function openTrip(tripId) {
+    console.log("Opening trip:", tripId);
     currentTripId = tripId;
     
     // Switch UI Views
@@ -31,6 +32,8 @@ export function openTrip(tripId) {
     unsubscribeListener = onSnapshot(doc(db, "trips", tripId), (docSnapshot) => {
         if (docSnapshot.exists()) {
             const data = docSnapshot.data();
+            console.log("Trip data loaded:", data);
+            
             activeTripData = data.days || [];
             currentTripTitle = data.tripTitle || "Trip";
             
@@ -43,13 +46,14 @@ export function openTrip(tripId) {
 
             initTripView(); 
         } else {
-            // Document was deleted? Go back.
+            console.warn("Trip document not found!");
             loadDashboard(); 
         }
     });
 }
 
 function initTripView() {
+    console.log("Initializing Trip View...");
     renderDateSelector();
     
     // Set theme based on current day's city
@@ -57,7 +61,7 @@ function initTripView() {
     updateTheme(city);
     
     showDay(currentDayIndex);
-    enableDragScroll(); // Re-attach drag listeners
+    enableDragScroll(); 
 }
 
 // --- Data Saving ---
@@ -103,10 +107,8 @@ export function handleNewEvent(e) {
     let targetIdx = activeTripData.findIndex(d => d.date === dateInput);
     
     if (targetIdx !== -1) {
-        // Day exists, append event
         activeTripData[targetIdx].events.push(newEvent);
     } else {
-        // New day, create it
         const d = getDayData(dateInput);
         activeTripData.push({
             date: dateInput, 
@@ -117,9 +119,7 @@ export function handleNewEvent(e) {
             cityZh: cityInput, 
             events: [newEvent]
         });
-        // Sort days chronologically
         activeTripData.sort((a, b) => a.date.localeCompare(b.date));
-        // Update index to point to the new day
         targetIdx = activeTripData.findIndex(d => d.date === dateInput);
     }
 
@@ -127,7 +127,6 @@ export function handleNewEvent(e) {
     document.getElementById('add-modal').classList.add('hidden');
     document.getElementById('add-event-form').reset();
     
-    // Jump to the added day
     showDay(targetIdx);
     renderDateSelector(); 
 }
@@ -138,10 +137,8 @@ export function deleteEvent(e, dayIdx, evtIdx) {
     
     activeTripData[dayIdx].events.splice(evtIdx, 1);
     
-    // If day is empty, remove it? (Optional feature)
     if (activeTripData[dayIdx].events.length === 0) {
         activeTripData.splice(dayIdx, 1);
-        // Adjust index if we deleted the last day
         if (currentDayIndex >= activeTripData.length) {
             currentDayIndex = Math.max(0, activeTripData.length - 1);
         }
@@ -173,7 +170,7 @@ export function showDay(idx) {
     
     currentDayIndex = idx;
     
-    // Highlight the correct date pill
+    // Highlight pills
     document.querySelectorAll('.date-pill').forEach((p, i) => {
         if(i === idx) p.classList.add('date-pill-active');
         else p.classList.remove('date-pill-active');
@@ -188,15 +185,14 @@ export function showDay(idx) {
         return;
     }
 
-    // Access global translations/icons safely
-    const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
+    // Access global translations/icons safely with fallbacks
     const icons = window.icons || {};
     const colors = window.colors || {};
 
     document.getElementById('current-city-name').innerText = currentLang === 'en' ? day.city : day.cityZh;
     updateTheme(day.city);
 
-    // Scroll active pill into center view
+    // Scroll active pill
     const pill = document.getElementById(`date-pill-${idx}`);
     if(pill) pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 
@@ -206,7 +202,7 @@ export function showDay(idx) {
             <button onclick="deleteEvent(event, ${idx}, ${i})" class="absolute top-2 right-2 text-red-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
-            <div class="w-12 h-12 rounded-2xl ${colors[e.type] || 'bg-gray-50'} flex items-center justify-center text-xl shrink-0">
+            <div class="w-12 h-12 rounded-2xl ${colors[e.type] || 'bg-gray-100 text-gray-500'} flex items-center justify-center text-xl shrink-0">
                 ${icons[e.type] || '📍'}
             </div>
             <div class="flex-grow">
@@ -224,6 +220,8 @@ export function showDay(idx) {
 
 export function renderDateSelector() {
     const container = document.getElementById('date-scroll-container');
+    if (!container) return; // Safety check
+    
     if (!activeTripData.length) { 
         container.innerHTML = ""; 
         return; 
@@ -241,10 +239,9 @@ export function renderDateSelector() {
 
 export function toggleLang() {
     currentLang = currentLang === 'en' ? 'zh' : 'en';
-    renderDateSelector(); // Update language on pills
-    showDay(currentDayIndex); // Update content
+    renderDateSelector(); 
+    showDay(currentDayIndex); 
     
-    // If in category view, refresh it too
     if (currentTab === 'category') {
         renderCategory(document.getElementById('category-select').value);
     }
@@ -280,7 +277,7 @@ export function renderCategory(category) {
                 items.push(`
                     <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start relative group fade-in mb-3">
                         <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-2 right-2 text-red-300 hover:text-red-500 p-2">✕</button>
-                        <div class="w-10 h-10 rounded-xl ${colors[category] || ''} flex items-center justify-center text-lg shrink-0">${icons[category] || '📍'}</div>
+                        <div class="w-10 h-10 rounded-xl ${colors[category] || 'bg-gray-100'} flex items-center justify-center text-lg shrink-0">${icons[category] || '📍'}</div>
                         <div class="flex-grow">
                             <div class="flex justify-between mb-1">
                                 <p class="text-[10px] font-bold text-primary uppercase">${currentLang === 'en' ? day.day : day.dayZh} ${day.display} • ${day.city}</p>

@@ -483,50 +483,60 @@ function enableDragScroll() {
     let scrollLeft;
     let isDragging = false; 
 
-    // Apply Styles to allow grab cursor
+    // Styles for grab cursor and NO TEXT SELECTION
     slider.style.cursor = 'grab';
-    slider.style.userSelect = 'none'; // Prevents text highlighting
+    slider.style.userSelect = 'none'; 
+    slider.style.webkitUserSelect = 'none';
 
     slider.addEventListener('mousedown', (e) => {
         isDown = true;
-        isDragging = false; // Reset drag status on new click
+        isDragging = false; 
         slider.style.cursor = 'grabbing';
+        
+        // 🛑 CRITICAL FIX: PREVENT TEXT SELECTION 🛑
+        e.preventDefault(); 
+        
+        // Remove smooth scroll during drag to prevent fighting
+        slider.style.scrollBehavior = 'auto';
+
         startX = e.pageX - slider.offsetLeft;
         scrollLeft = slider.scrollLeft;
-        // e.preventDefault(); // Optional: helps in some browsers
     });
 
     slider.addEventListener('mouseleave', () => {
         isDown = false;
         slider.style.cursor = 'grab';
+        slider.style.scrollBehavior = 'smooth';
     });
 
     slider.addEventListener('mouseup', () => {
         isDown = false;
         slider.style.cursor = 'grab';
+        slider.style.scrollBehavior = 'smooth';
     });
 
     slider.addEventListener('mousemove', (e) => {
         if (!isDown) return;
         
-        e.preventDefault(); // Stop text selection
+        e.preventDefault(); 
         const x = e.pageX - slider.offsetLeft;
-        const walk = (x - startX) * 2; // Scroll speed
         
-        // Only consider it a drag if moved more than 5 pixels
-        if (Math.abs(walk) > 5) {
+        // 🛑 CRITICAL FIX: 1:1 SCROLL SPEED (Removed the *2 multiplier) 🛑
+        const walk = (x - startX); 
+        
+        // Only scroll if moved more than 3px to avoid jittery clicks
+        if (Math.abs(walk) > 3) {
             isDragging = true;
             slider.scrollLeft = scrollLeft - walk;
         }
     });
 
-    // Capture click events on the container before they reach the buttons
+    // Capture click events and kill them if we were dragging
     slider.addEventListener('click', (e) => {
         if (isDragging) {
-            // If we were dragging, kill the click!
             e.preventDefault();
             e.stopPropagation();
-            isDragging = false; // Reset for next time
+            isDragging = false; 
         }
-    }, true); // 'true' uses Capture Phase (happens before bubble)
+    }, true); 
 }

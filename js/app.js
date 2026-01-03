@@ -25,6 +25,8 @@ let db;
 let tripDocRef;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log("App Loaded. Initializing...");
+
     // 1. Initialize Firebase
     if (window.firebaseImports) {
         const { initializeApp, getFirestore, doc, onSnapshot } = window.firebaseImports;
@@ -77,13 +79,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function saveToCloud() {
-    if (!tripDocRef || !window.firebaseImports) return;
+    if (!tripDocRef || !window.firebaseImports) {
+        console.warn("Firebase not connected, saving locally only.");
+        return;
+    }
     const { setDoc } = window.firebaseImports;
     try {
         await setDoc(tripDocRef, { 
             days: activeTripData,
             tripTitle: currentTripTitle 
         });
+        console.log("Saved to cloud successfully.");
     } catch (e) {
         console.error("Error saving:", e);
     }
@@ -104,11 +110,8 @@ const daysZh = ["日", "一", "二", "三", "四", "五", "六"];
 const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function getDayData(dateStr) {
-    // dateStr is "YYYY-MM-DD"
-    // Create date as Noon UTC to avoid timezone rollback
     const parts = dateStr.split('-');
     const d = new Date(parts[0], parts[1] - 1, parts[2]);
-    
     const dayIdx = d.getDay();
     const dateNum = d.getDate();
     const monthIdx = d.getMonth();
@@ -164,20 +167,16 @@ function updateUIStrings() {
     
     if(document.getElementById('ui-location-label')) document.getElementById('ui-location-label').innerText = t.location;
     if(document.getElementById('lang-btn-text')) document.getElementById('lang-btn-text').innerText = t.langToggle;
-    
     if(document.getElementById('ui-category-view-title')) document.getElementById('ui-category-view-title').innerText = t.categoryView;
     if(document.getElementById('ui-category-desc')) document.getElementById('ui-category-desc').innerText = t.categoryDesc;
     if(document.getElementById('ui-filter-label')) document.getElementById('ui-filter-label').innerText = t.filterBy;
     if(document.getElementById('ui-memos-title')) document.getElementById('ui-memos-title').innerText = t.memos;
     if(document.getElementById('ui-memos-desc')) document.getElementById('ui-memos-desc').innerText = t.memosDesc;
-    
     if(document.getElementById('ui-gdoc-title')) document.getElementById('ui-gdoc-title').innerText = t.gdocTitle;
     if(document.getElementById('ui-gdoc-sub')) document.getElementById('ui-gdoc-sub').innerText = t.gdocSub;
     if(document.getElementById('ui-gdoc-btn')) document.getElementById('ui-gdoc-btn').innerText = t.open;
-    
     if(document.getElementById('ui-reminders-label')) document.getElementById('ui-reminders-label').innerText = t.reminders;
     if(document.getElementById('ui-reminders-list')) document.getElementById('ui-reminders-list').innerHTML = t.remindersContent;
-    
     if(document.getElementById('ui-nav-journey')) document.getElementById('ui-nav-journey').innerText = t.journey;
     if(document.getElementById('ui-nav-category')) document.getElementById('ui-nav-category').innerText = t.category;
     if(document.getElementById('ui-nav-memos')) document.getElementById('ui-nav-memos').innerText = t.memos;
@@ -203,8 +202,6 @@ function updateUIStrings() {
 function openAddModal() {
     const modal = document.getElementById('add-modal');
     modal.classList.remove('hidden');
-    
-    // Set default date to current active day
     const currentDay = activeTripData[currentDayIndex];
     if (currentDay) {
         document.getElementById('new-date-picker').value = currentDay.date;
@@ -227,7 +224,6 @@ function handleNewEvent(e) {
         return; 
     }
 
-    // Get Form Data
     const inputDate = document.getElementById('new-date-picker').value;
     const inputCity = document.getElementById('new-city').value;
     const type = document.getElementById('new-type').value;
@@ -245,14 +241,11 @@ function handleNewEvent(e) {
         mapUrl: "" 
     };
 
-    // LOGIC: Check if date exists
     let targetDayIndex = activeTripData.findIndex(d => d.date === inputDate);
 
     if (targetDayIndex !== -1) {
-        // CASE 1: Date Exists -> Add to it
         activeTripData[targetDayIndex].events.push(newEvent);
     } else {
-        // CASE 2: New Date -> Create new day
         const dayInfo = getDayData(inputDate);
         const newDay = {
             date: inputDate,
@@ -260,23 +253,17 @@ function handleNewEvent(e) {
             day: dayInfo.day,
             dayZh: dayInfo.dayZh,
             city: inputCity,
-            cityZh: inputCity, // Fallback for Chinese
+            cityZh: inputCity, 
             events: [newEvent]
         };
         activeTripData.push(newDay);
-        
-        // Sort chronologically
         activeTripData.sort((a, b) => a.date.localeCompare(b.date));
-        
-        // Find new index after sort
         targetDayIndex = activeTripData.findIndex(d => d.date === inputDate);
     }
 
     saveToCloud();
     closeAddModal();
     document.getElementById('add-event-form').reset();
-    
-    // Jump to the day we just modified/added
     showDay(targetDayIndex);
 }
 
@@ -284,32 +271,40 @@ function deleteEvent(event, dayIdx, evtIdx) {
     event.stopPropagation();
     if (!confirm("Are you sure you want to delete this task?")) return;
 
-    // 1. Remove the specific event
     activeTripData[dayIdx].events.splice(evtIdx, 1);
 
-    // 2. CHECK: If the day has no more events, remove the day entirely
     if (activeTripData[dayIdx].events.length === 0) {
         activeTripData.splice(dayIdx, 1);
-        
-        // Safety: If we deleted the last day, step back the current index
         if (currentDayIndex >= activeTripData.length) {
             currentDayIndex = Math.max(0, activeTripData.length - 1);
         }
     }
 
-    // 3. Save changes (this triggers onSnapshot which updates the UI)
     saveToCloud();
+    renderDateSelector(); // Force refresh pills
+    if (activeTripData.length > 0) showDay(currentDayIndex);
 }
 
+// --- 👇 THIS IS THE FIX 👇 ---
 function deleteCurrentDay() {
+    console.log("Delete button clicked");
+    
     // 1. Safety Checks
     if (activeTripData.length === 0) return;
     const currentDay = activeTripData[currentDayIndex];
-    if (!currentDay) return;
+    if (!currentDay) {
+        console.error("No current day found");
+        return;
+    }
 
     // 2. Confirm with User
     const msg = `Are you sure you want to delete EVERYTHING for ${currentDay.display} (${currentDay.city})?\n\nThis cannot be undone.`;
-    if (!confirm(msg)) return;
+    if (!confirm(msg)) {
+        console.log("Deletion cancelled by user");
+        return;
+    }
+
+    console.log("Deleting index:", currentDayIndex);
 
     // 3. Remove the day
     activeTripData.splice(currentDayIndex, 1);
@@ -323,7 +318,7 @@ function deleteCurrentDay() {
     saveToCloud();
     renderDateSelector();
     
-    // Handle empty state if that was the last day
+    // Handle empty state
     if (activeTripData.length === 0) {
         document.getElementById('day-content-container').innerHTML = 
             `<div class="text-center text-gray-400 mt-10 text-sm">No days planned.<br>Click "+" to add one.</div>`;
@@ -333,6 +328,9 @@ function deleteCurrentDay() {
         showDay(currentDayIndex);
     }
 }
+// Explicitly attach to window so HTML 'onclick' can find it
+window.deleteCurrentDay = deleteCurrentDay;
+
 
 // --- Rendering ---
 
@@ -345,7 +343,11 @@ function renderDateSelector() {
             <div class="date-maintext text-sm font-bold text-text">${d.display}</div>
         </button>
     `).join('');
-    showDay(currentDayIndex);
+    
+    // If we have data but no valid index, show first day
+    if(activeTripData.length > 0 && !activeTripData[currentDayIndex]) {
+        showDay(0);
+    }
 }
 
 function generateEventCard(e, dayIdx, evtIdx) {
@@ -384,7 +386,6 @@ function generateEventCard(e, dayIdx, evtIdx) {
 }
 
 function showDay(idx) {
-    // Safety check if index is out of bounds (can happen after sorting/deleting)
     if (idx >= activeTripData.length) idx = activeTripData.length - 1;
     if (idx < 0) idx = 0;
     
@@ -401,6 +402,9 @@ function showDay(idx) {
         document.getElementById('current-city-name').innerText = currentLang === 'en' ? day.city : day.cityZh;
         const container = document.getElementById('day-content-container');
         container.innerHTML = day.events.map((e, evtIdx) => generateEventCard(e, idx, evtIdx)).join('');
+    } else {
+        // Fallback for empty state
+        document.getElementById('day-content-container').innerHTML = "";
     }
 }
 

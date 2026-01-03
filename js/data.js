@@ -1,8 +1,8 @@
 /* * DATA FILE
- * Contains all static content: translations, itinerary events, and theme colors.
+ * Contains static content. Attached to 'window' so modules can see it.
  */
 
-const translations = {
+window.translations = {
     en: {
         tourLabel: "2026 Jan London/Spain/Lisbon",
         journey: "The Journey",
@@ -71,7 +71,7 @@ const translations = {
     }
 };
 
-const tripData = [
+window.tripData = [
     { date: "2025-12-29", display: "29 Dec", day: "Mon", dayZh: "一", city: "Transit", cityZh: "轉機", events: [{ type: "flight", title: "SFO ➔ LHR", titleZh: "舊金山 ➔ 倫敦", time: "12:50 PM", details: "United UA 901", sub: "Seats: 12A, 12B, 12D, 12E" }, { type: "hotel", title: "Heathrow Marriott", titleZh: "希思羅萬怡酒店", time: "Arr", details: "Morning Refresh Stay", sub: "", mapUrl: "https://www.google.com/maps/search/?api=1&query=London+Heathrow+Marriott+Hotel" }] },
     { date: "2025-12-30", display: "30 Dec", day: "Tue", dayZh: "二", city: "London", cityZh: "倫敦", events: [{ type: "transfer", title: "Arrival", titleZh: "抵達", time: "07:25 AM", details: "Customs & Luggage", sub: "" }, { type: "hotel", title: "W London", titleZh: "W 酒店", time: "Check-in", details: "Leicester Square", sub: "", mapUrl: "https://www.google.com/maps/search/?api=1&query=W+London+Leicester+Square" }, { type: "dining", title: "The Eight", titleZh: "The Eight 餐廳", time: "Evening", details: "Maybe (Tentative)", sub: "", mapUrl: "https://www.google.com/maps/search/?api=1&query=The+Eight+Restaurant+London" }] },
     { date: "2025-12-31", display: "31 Dec", day: "Wed", dayZh: "三", city: "London", cityZh: "倫敦", events: [{ type: "dining", title: "Dishoom Carnaby", titleZh: "Dishoom 印度餐", time: "12:30 PM", details: "Bombay Cafe Lunch", sub: "Confirmed", mapUrl: "https://www.google.com/maps/search/?api=1&query=Dishoom+Carnaby+London" }, { type: "dining", title: "Fumo London", titleZh: "Fumo 義大利餐", time: "08:00 PM", details: "NYE Dinner", sub: "Confirmed", mapUrl: "https://www.google.com/maps/search/?api=1&query=Fumo+London" }] },
@@ -87,7 +87,7 @@ const tripData = [
     { date: "2026-01-10", display: "10 Jan", day: "Sat", dayZh: "六", city: "Departure", cityZh: "回程", events: [{ type: "flight", title: "LIS ➔ SFO", titleZh: "里斯本 ➔ 舊金山", time: "10:15 AM", details: "United UA 65", sub: "Polaris Business" }] }
 ];
 
-const themes = {
+window.themes = {
     "London": "#7EA2D6",    // Brighter Sky Navy
     "Granada": "#BC5D37",   // Terracotta
     "Sevilla": "#D49B00",   // Gold
@@ -96,7 +96,7 @@ const themes = {
     "Departure": "#2D3748"  // Charcoal
 };
 
-const icons = { 
+window.icons = { 
     flight: "✈️", 
     hotel: "🏨", 
     dining: "🍽️", 
@@ -104,7 +104,7 @@ const icons = {
     transfer: "🚙" 
 };
 
-const colors = { 
+window.colors = { 
     flight: "text-blue-600 bg-blue-50", 
     hotel: "text-purple-600 bg-purple-50", 
     dining: "text-orange-600 bg-orange-50", 

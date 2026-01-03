@@ -3,7 +3,7 @@ import { db } from './firebase-config.js';
 import { getDayData, updateTheme, enableDragScroll } from './utils.js';
 import { loadDashboard } from './dashboard.js';
 
-// Global state
+// Global state for the active trip
 export let activeTripData = [];
 export let currentTripId = null;
 export let currentTripTitle = "";
@@ -19,13 +19,16 @@ export function openTrip(tripId) {
     console.log("Opening trip:", tripId);
     currentTripId = tripId;
     
+    // Switch UI Views
     document.getElementById('dashboard-view').classList.add('hidden');
     document.getElementById('trip-view').classList.remove('hidden');
 
     const { doc, onSnapshot } = window.firebaseImports;
     
+    // Unsubscribe from previous listener if exists
     if (unsubscribeListener) unsubscribeListener();
 
+    // Listen to this specific trip document
     unsubscribeListener = onSnapshot(doc(db, "trips", tripId), (docSnapshot) => {
         if (docSnapshot.exists()) {
             const data = docSnapshot.data();
@@ -34,6 +37,7 @@ export function openTrip(tripId) {
             activeTripData = data.days || [];
             currentTripTitle = data.tripTitle || "Trip";
             
+            // Update Title
             document.title = currentTripTitle.toUpperCase();
             const titleInput = document.getElementById('trip-title-input');
             if(titleInput && document.activeElement !== titleInput) {
@@ -51,11 +55,12 @@ export function openTrip(tripId) {
 function initTripView() {
     console.log("Initializing Trip View...");
     
-    // 👇 1. UPDATE UI STRINGS (Populates the dropdown!)
-    updateUIStrings(); 
+    // 👇 CRITICAL FIX: Populate the dropdown and labels
+    updateUIStrings();
 
     renderDateSelector();
     
+    // Set theme based on current day's city
     const city = (activeTripData[currentDayIndex]) ? activeTripData[currentDayIndex].city : "Transit";
     updateTheme(city);
     
@@ -63,14 +68,14 @@ function initTripView() {
     enableDragScroll(); 
 }
 
-// --- 👇 NEW FUNCTION: Restore Translation & Dropdown Logic ---
+// --- 👇 NEW FUNCTION: Manage Translations & Dropdown ---
 function updateUIStrings() {
     const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
     
     const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
     const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
 
-    // Update labels
+    // Update Text Labels
     setTxt('ui-location-label', t.location);
     setTxt('lang-btn-text', t.langToggle);
     setTxt('ui-category-view-title', t.categoryView);
@@ -87,7 +92,7 @@ function updateUIStrings() {
     setTxt('ui-nav-category', t.category);
     setTxt('ui-nav-memos', t.memos);
 
-    // Update Header Title based on Tab
+    // Update Header Title based on current tab
     const headerTitle = document.getElementById('app-header-title');
     if (headerTitle) {
         if (currentTab === 'timeline') headerTitle.innerText = t.journey;
@@ -95,15 +100,21 @@ function updateUIStrings() {
         else headerTitle.innerText = t.memos;
     }
 
-    // 👇 POPULATE CATEGORY DROPDOWN
+    // 👇 POPULATE THE DROPDOWN
     const sel = document.getElementById('category-select');
     if (sel) {
         const currentVal = sel.value || 'flight';
+        // Check if translations exist, otherwise fallback to English
+        const f = t.catFlights || 'Flights';
+        const h = t.catHotels || 'Hotels';
+        const m = t.catMeals || 'Dining';
+        const a = t.catTours || 'Activities';
+        
         sel.innerHTML = `
-            <option value="flight">${t.catFlights || 'Flights'}</option>
-            <option value="hotel">${t.catHotels || 'Hotels'}</option>
-            <option value="dining">${t.catMeals || 'Dining'}</option>
-            <option value="activity">${t.catTours || 'Activities'}</option>
+            <option value="flight">✈️ ${f}</option>
+            <option value="hotel">🏨 ${h}</option>
+            <option value="dining">🍽️ ${m}</option>
+            <option value="activity">🎨 ${a}</option>
             <option value="transfer">🚙 Transfer</option>
         `;
         sel.value = currentVal;
@@ -133,7 +144,7 @@ export function handleTitleSave(input) {
     }
 }
 
-// --- Actions ---
+// --- Actions (Add/Delete) ---
 
 export function handleNewEvent(e) {
     e.preventDefault();
@@ -192,6 +203,7 @@ export function deleteEvent(e, dayIdx, evtIdx) {
     }
     
     saveToCloud();
+    
     // Refresh current view
     if(currentTab === 'timeline') showDay(currentDayIndex);
     if(currentTab === 'category') renderCategory(document.getElementById('category-select').value);
@@ -212,11 +224,13 @@ export function deleteCurrentDay() {
 // --- Rendering Logic ---
 
 export function showDay(idx) {
+    // Bounds check
     if(idx < 0) idx = 0;
     if(idx >= activeTripData.length && activeTripData.length > 0) idx = activeTripData.length - 1;
     
     currentDayIndex = idx;
     
+    // Highlight pills
     document.querySelectorAll('.date-pill').forEach((p, i) => {
         if(i === idx) p.classList.add('date-pill-active');
         else p.classList.remove('date-pill-active');
@@ -283,9 +297,7 @@ export function renderDateSelector() {
 export function toggleLang() {
     currentLang = currentLang === 'en' ? 'zh' : 'en';
     
-    // 👇 UPDATE UI STRINGS when language changes
-    updateUIStrings();
-    
+    updateUIStrings(); // Re-populate with new language
     renderDateSelector(); 
     showDay(currentDayIndex); 
     
@@ -301,8 +313,7 @@ export function switchTab(tab) {
         document.getElementById(`nav-${t}`).classList.toggle('active-nav', t === tab);
     });
 
-    // 👇 Update Header Title
-    updateUIStrings();
+    updateUIStrings(); // Update title "Journey" vs "Category"
     
     if(tab === 'timeline') showDay(currentDayIndex);
     if(tab === 'category') renderCategory(document.getElementById('category-select').value);

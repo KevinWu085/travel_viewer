@@ -7,9 +7,13 @@ the structure of the project looks like this
 
 ```text
 travel-app/
-├── index.html        # The main entry point and HTML skeleton
+├── index.html              # Main entry point (loads js/app.js as module)
 ├── css/
-│   └── style.css     # Custom styling, animations, and CSS variables
+│   └── style.css           # Styling and animations
 └── js/
-    ├── data.js       # Hardcoded itinerary data & translation strings (Edit this file to change the schedule)
-    └── app.js        # Core application logic, event listeners, and rendering functions
+    ├── app.js              # The "Brain": Imports everything and connects to HTML
+    ├── firebase-config.js  # Database connection logic
+    ├── dashboard.js        # Logic for "My Trips" list, sorting, and searching
+    ├── trip.js             # Logic for the specific Trip Details view (timeline)
+    ├── utils.js            # Helper functions (Time validation, Theme colors, Dragging)
+    └── data.js             # Static configuration (Translations, Icons, Default Data)

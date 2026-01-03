@@ -3,7 +3,7 @@ import { db } from './firebase-config.js';
 import { getDayData, updateTheme, enableDragScroll } from './utils.js';
 import { loadDashboard } from './dashboard.js';
 
-// Global state for the active trip
+// Global state
 export let activeTripData = [];
 export let currentTripId = null;
 export let currentTripTitle = "";
@@ -19,16 +19,13 @@ export function openTrip(tripId) {
     console.log("Opening trip:", tripId);
     currentTripId = tripId;
     
-    // Switch UI Views
     document.getElementById('dashboard-view').classList.add('hidden');
     document.getElementById('trip-view').classList.remove('hidden');
 
     const { doc, onSnapshot } = window.firebaseImports;
     
-    // Unsubscribe from previous listener if exists
     if (unsubscribeListener) unsubscribeListener();
 
-    // Listen to this specific trip document
     unsubscribeListener = onSnapshot(doc(db, "trips", tripId), (docSnapshot) => {
         if (docSnapshot.exists()) {
             const data = docSnapshot.data();
@@ -37,7 +34,6 @@ export function openTrip(tripId) {
             activeTripData = data.days || [];
             currentTripTitle = data.tripTitle || "Trip";
             
-            // Update Title
             document.title = currentTripTitle.toUpperCase();
             const titleInput = document.getElementById('trip-title-input');
             if(titleInput && document.activeElement !== titleInput) {
@@ -54,14 +50,64 @@ export function openTrip(tripId) {
 
 function initTripView() {
     console.log("Initializing Trip View...");
+    
+    // 👇 1. UPDATE UI STRINGS (Populates the dropdown!)
+    updateUIStrings(); 
+
     renderDateSelector();
     
-    // Set theme based on current day's city
     const city = (activeTripData[currentDayIndex]) ? activeTripData[currentDayIndex].city : "Transit";
     updateTheme(city);
     
     showDay(currentDayIndex);
     enableDragScroll(); 
+}
+
+// --- 👇 NEW FUNCTION: Restore Translation & Dropdown Logic ---
+function updateUIStrings() {
+    const t = (window.translations && window.translations[currentLang]) ? window.translations[currentLang] : {};
+    
+    const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
+    const setHtml = (id, htm) => { const el = document.getElementById(id); if(el) el.innerHTML = htm; };
+
+    // Update labels
+    setTxt('ui-location-label', t.location);
+    setTxt('lang-btn-text', t.langToggle);
+    setTxt('ui-category-view-title', t.categoryView);
+    setTxt('ui-category-desc', t.categoryDesc);
+    setTxt('ui-filter-label', t.filterBy);
+    setTxt('ui-memos-title', t.memos);
+    setTxt('ui-memos-desc', t.memosDesc);
+    setTxt('ui-gdoc-title', t.gdocTitle);
+    setTxt('ui-gdoc-sub', t.gdocSub);
+    setTxt('ui-gdoc-btn', t.open);
+    setTxt('ui-reminders-label', t.reminders);
+    setHtml('ui-reminders-list', t.remindersContent);
+    setTxt('ui-nav-journey', t.journey);
+    setTxt('ui-nav-category', t.category);
+    setTxt('ui-nav-memos', t.memos);
+
+    // Update Header Title based on Tab
+    const headerTitle = document.getElementById('app-header-title');
+    if (headerTitle) {
+        if (currentTab === 'timeline') headerTitle.innerText = t.journey;
+        else if (currentTab === 'category') headerTitle.innerText = t.category;
+        else headerTitle.innerText = t.memos;
+    }
+
+    // 👇 POPULATE CATEGORY DROPDOWN
+    const sel = document.getElementById('category-select');
+    if (sel) {
+        const currentVal = sel.value || 'flight';
+        sel.innerHTML = `
+            <option value="flight">${t.catFlights || 'Flights'}</option>
+            <option value="hotel">${t.catHotels || 'Hotels'}</option>
+            <option value="dining">${t.catMeals || 'Dining'}</option>
+            <option value="activity">${t.catTours || 'Activities'}</option>
+            <option value="transfer">🚙 Transfer</option>
+        `;
+        sel.value = currentVal;
+    }
 }
 
 // --- Data Saving ---
@@ -87,7 +133,7 @@ export function handleTitleSave(input) {
     }
 }
 
-// --- Actions (Add/Delete) ---
+// --- Actions ---
 
 export function handleNewEvent(e) {
     e.preventDefault();
@@ -146,7 +192,9 @@ export function deleteEvent(e, dayIdx, evtIdx) {
     }
     
     saveToCloud();
-    showDay(currentDayIndex);
+    // Refresh current view
+    if(currentTab === 'timeline') showDay(currentDayIndex);
+    if(currentTab === 'category') renderCategory(document.getElementById('category-select').value);
 }
 
 export function deleteCurrentDay() {
@@ -164,13 +212,11 @@ export function deleteCurrentDay() {
 // --- Rendering Logic ---
 
 export function showDay(idx) {
-    // Bounds check
     if(idx < 0) idx = 0;
     if(idx >= activeTripData.length && activeTripData.length > 0) idx = activeTripData.length - 1;
     
     currentDayIndex = idx;
     
-    // Highlight pills
     document.querySelectorAll('.date-pill').forEach((p, i) => {
         if(i === idx) p.classList.add('date-pill-active');
         else p.classList.remove('date-pill-active');
@@ -185,18 +231,15 @@ export function showDay(idx) {
         return;
     }
 
-    // Access global translations/icons safely with fallbacks
     const icons = window.icons || {};
     const colors = window.colors || {};
 
     document.getElementById('current-city-name').innerText = currentLang === 'en' ? day.city : day.cityZh;
     updateTheme(day.city);
 
-    // Scroll active pill
     const pill = document.getElementById(`date-pill-${idx}`);
     if(pill) pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 
-    // Render Events
     container.innerHTML = day.events.map((e, i) => `
         <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start relative group fade-in">
             <button onclick="deleteEvent(event, ${idx}, ${i})" class="absolute top-2 right-2 text-red-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors">
@@ -220,7 +263,7 @@ export function showDay(idx) {
 
 export function renderDateSelector() {
     const container = document.getElementById('date-scroll-container');
-    if (!container) return; // Safety check
+    if (!container) return;
     
     if (!activeTripData.length) { 
         container.innerHTML = ""; 
@@ -239,6 +282,10 @@ export function renderDateSelector() {
 
 export function toggleLang() {
     currentLang = currentLang === 'en' ? 'zh' : 'en';
+    
+    // 👇 UPDATE UI STRINGS when language changes
+    updateUIStrings();
+    
     renderDateSelector(); 
     showDay(currentDayIndex); 
     
@@ -253,6 +300,9 @@ export function switchTab(tab) {
         document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
         document.getElementById(`nav-${t}`).classList.toggle('active-nav', t === tab);
     });
+
+    // 👇 Update Header Title
+    updateUIStrings();
     
     if(tab === 'timeline') showDay(currentDayIndex);
     if(tab === 'category') renderCategory(document.getElementById('category-select').value);
@@ -267,6 +317,8 @@ export function renderCategory(category) {
     const container = document.getElementById('category-results');
     if (!container) return;
     
+    if(!category) category = 'flight'; // Default fallback
+
     const icons = window.icons || {};
     const colors = window.colors || {};
     

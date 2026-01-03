@@ -126,7 +126,6 @@ async function loadDashboard() {
                 const getDist = (t) => {
                     if (!t.days || t.days.length === 0) return Infinity; // No dates = far away
                     // Use the first day as the "Start Date"
-                    // Ensure dates are sorted first? Usually they are saved sorted.
                     const startDate = new Date(t.days[0].date);
                     return Math.abs(startDate - new Date());
                 };

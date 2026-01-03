@@ -301,6 +301,39 @@ function deleteEvent(event, dayIdx, evtIdx) {
     saveToCloud();
 }
 
+function deleteCurrentDay() {
+    // 1. Safety Checks
+    if (activeTripData.length === 0) return;
+    const currentDay = activeTripData[currentDayIndex];
+    if (!currentDay) return;
+
+    // 2. Confirm with User
+    const msg = `Are you sure you want to delete EVERYTHING for ${currentDay.display} (${currentDay.city})?\n\nThis cannot be undone.`;
+    if (!confirm(msg)) return;
+
+    // 3. Remove the day
+    activeTripData.splice(currentDayIndex, 1);
+
+    // 4. Adjust Index (prevent out of bounds)
+    if (currentDayIndex >= activeTripData.length) {
+        currentDayIndex = Math.max(0, activeTripData.length - 1);
+    }
+
+    // 5. Save and Render
+    saveToCloud();
+    renderDateSelector();
+    
+    // Handle empty state if that was the last day
+    if (activeTripData.length === 0) {
+        document.getElementById('day-content-container').innerHTML = 
+            `<div class="text-center text-gray-400 mt-10 text-sm">No days planned.<br>Click "+" to add one.</div>`;
+        document.getElementById('current-city-name').innerText = "Journey";
+        updateTheme("Transit");
+    } else {
+        showDay(currentDayIndex);
+    }
+}
+
 // --- Rendering ---
 
 function renderDateSelector() {

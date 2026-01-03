@@ -63,7 +63,7 @@ function initTripView() {
     
     enableDragScroll(); 
 
-    // 👇 Force reset to Timeline view (This ensures headers are visible when opening a trip)
+    // Force reset to Timeline view so headers/banners are visible
     switchTab('timeline');
 }
 
@@ -200,14 +200,14 @@ export function showDay(idx) {
 
     container.innerHTML = day.events.map((e, i) => `
         <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start relative group fade-in">
-            <button onclick="deleteEvent(event, ${idx}, ${i})" class="absolute top-2 right-2 text-red-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors">
+            <button onclick="deleteEvent(event, ${idx}, ${i})" class="absolute top-2 right-2 text-red-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors z-10">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <div class="w-12 h-12 rounded-2xl ${colors[e.type] || 'bg-gray-100 text-gray-500'} flex items-center justify-center text-xl shrink-0">
                 ${icons[e.type] || '📍'}
             </div>
             <div class="flex-grow">
-                <div class="flex justify-between mb-1">
+                <div class="flex justify-between mb-1 pr-6">
                     <span class="text-[10px] font-bold uppercase tracking-widest text-secondary opacity-50">${e.type}</span>
                     <span class="text-xs font-bold text-primary">${e.time}</span>
                 </div>
@@ -258,7 +258,6 @@ export function switchTab(tab) {
         document.getElementById(`nav-${t}`).classList.toggle('active-nav', t === tab);
     });
 
-    // 👇 NEW: Hide Location and Date Scroll if NOT on Timeline
     const isTimeline = (tab === 'timeline');
     const dateScroll = document.getElementById('date-scroll-container');
     const cityBanner = document.getElementById('city-banner');
@@ -292,10 +291,10 @@ export function renderCategory(category) {
             if (e.type === category) {
                 items.push(`
                     <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start relative group fade-in mb-3">
-                        <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-2 right-2 text-red-300 hover:text-red-500 p-2">✕</button>
+                        <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-2 right-2 text-red-300 hover:text-red-500 p-2 z-10">✕</button>
                         <div class="w-10 h-10 rounded-xl ${colors[category] || 'bg-gray-100'} flex items-center justify-center text-lg shrink-0">${icons[category] || '📍'}</div>
                         <div class="flex-grow">
-                            <div class="flex justify-between mb-1">
+                            <div class="flex justify-between mb-1 pr-6">
                                 <p class="text-[10px] font-bold text-primary uppercase">${currentLang === 'en' ? day.day : day.dayZh} ${day.display} • ${day.city}</p>
                                 <span class="text-[10px] font-bold text-secondary opacity-60">${e.time}</span>
                             </div>

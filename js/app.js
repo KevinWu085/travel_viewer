@@ -1,14 +1,15 @@
 /* * APP LOGIC FILE
- * Handles all functionality + FIREBASE SYNCING
+ * Handles all functionality + FIREBASE SYNCING + EDITABLE TITLE + TAB SYNC (ALL CAPS)
  */
 
 // --- Global State ---
 let currentDayIndex = 0;
 let currentLang = 'en';
 let currentTab = 'timeline';
-let activeTripData = tripData; // Start with default data while loading
+let activeTripData = tripData; 
+let currentTripTitle = "2026 Jan London/Spain/Lisbon"; // Default title
 
-// --- 👇 FIREBASE SETUP (PASTE YOUR KEYS HERE) 👇 ---
+// --- 👇 FIREBASE SETUP (YOUR KEYS) 👇 ---
 const firebaseConfig = {
     apiKey: "AIzaSyCdSkde68rfs8bRD7YTnyDbaFaqnt37dww",
     authDomain: "travelviewer-ddcad.firebaseapp.com",
@@ -23,7 +24,6 @@ const firebaseConfig = {
 let db;
 let tripDocRef;
 
-// Wait for the modules from index.html to load
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Initialize Firebase
     if (window.firebaseImports) {
@@ -31,30 +31,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         
-        // We will store everything in a collection called "trips", document "mainTrip"
         tripDocRef = doc(db, "trips", "mainTrip");
 
-        // 2. LISTEN for Cloud Updates (Real-time Sync)
+        // 2. LISTEN for Cloud Updates
         onSnapshot(tripDocRef, (docSnapshot) => {
             if (docSnapshot.exists()) {
-                console.log("New data came from the cloud!");
-                // Update our local variable with the cloud data
-                activeTripData = docSnapshot.data().days;
+                const data = docSnapshot.data();
+                console.log("Cloud update received");
                 
-                // Refresh the screen immediately
+                // Update Events
+                if (data.days) activeTripData = data.days;
+                
+                // Update Title (if exists in cloud)
+                if (data.tripTitle) {
+                    currentTripTitle = data.tripTitle;
+                    
+                    // 👇 UPDATED: Force Tab Title to ALL CAPS 👇
+                    document.title = currentTripTitle.toUpperCase();
+                    
+                    // Update Input Field
+                    const titleInput = document.getElementById('trip-title-input');
+                    if (titleInput && document.activeElement !== titleInput) {
+                        titleInput.value = currentTripTitle;
+                    }
+                }
+                
+                // Refresh UI
                 renderDateSelector();
                 if (currentTab === 'timeline') showDay(currentDayIndex);
                 if (currentTab === 'category') renderCategory(document.getElementById('category-select').value);
             } else {
-                console.log("No cloud data yet. Using default.");
-                // Use default 'tripData' from data.js if cloud is empty
-                activeTripData = tripData;
-                saveToCloud(); // Save the default data to cloud so it exists next time
+                // If cloud is empty, save default data
+                saveToCloud();
             }
         });
     }
 
-    // Initial render
     updateUIStrings();
     renderDateSelector();
     
@@ -74,25 +86,41 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
- * SAVES current data to Google Cloud (Firestore)
- * replacing localStorage.setItem
+ * SAVES Title and Events to Cloud
  */
 async function saveToCloud() {
     if (!tripDocRef || !window.firebaseImports) return;
     const { setDoc } = window.firebaseImports;
     
     try {
-        await setDoc(tripDocRef, { days: activeTripData });
+        await setDoc(tripDocRef, { 
+            days: activeTripData,
+            tripTitle: currentTripTitle 
+        });
         console.log("Saved to cloud!");
     } catch (e) {
-        alert("Error saving to cloud: " + e.message);
+        console.error("Error saving:", e);
     }
 }
 
-// --- Touch State ---
-let touchStartX, touchStartY, touchEndX, touchEndY;
+/**
+ * Handles saving the title when user clicks away
+ */
+function handleTitleSave(inputElement) {
+    const newTitle = inputElement.value.trim();
+    if (newTitle && newTitle !== currentTripTitle) {
+        currentTripTitle = newTitle;
+        
+        // 👇 UPDATED: Force Tab Title to ALL CAPS immediately 👇
+        document.title = currentTripTitle.toUpperCase();
+        
+        saveToCloud(); // Push new title to phone/PC
+    }
+}
 
-// --- Helper Functions ---
+// --- Standard App Logic Below ---
+
+let touchStartX, touchStartY, touchEndX, touchEndY;
 
 function updateTheme(city) {
     const color = themes[city] || themes["Transit"];
@@ -110,18 +138,10 @@ function toggleLang() {
 function validateTimeField(inputElement) {
     const value = inputElement.value.trim();
     const errorMsg = document.getElementById('time-error-msg');
-    if (!value) {
-        inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
-        if(errorMsg) errorMsg.classList.add('hidden');
-        return true;
-    }
+    if (!value) return true;
     const hasNumber = /\d/.test(value);
-    if (!hasNumber) {
-        inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
-        if(errorMsg) errorMsg.classList.add('hidden');
-        return true;
-    }
-    // Strict H:MM AM/PM check
+    if (!hasNumber) return true;
+    
     const strictTimeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(am|pm|AM|PM)$/i;
     if (strictTimeRegex.test(value)) {
         inputElement.classList.remove('border-red-500', 'focus:ring-red-500');
@@ -139,20 +159,24 @@ function validateTimeField(inputElement) {
 
 function updateUIStrings() {
     const t = translations[currentLang];
-    // ... (Keep existing UI string logic same as before) ...
-    if(document.getElementById('ui-tour-label')) document.getElementById('ui-tour-label').innerText = t.tourLabel;
+    
     if(document.getElementById('ui-location-label')) document.getElementById('ui-location-label').innerText = t.location;
     if(document.getElementById('lang-btn-text')) document.getElementById('lang-btn-text').innerText = t.langToggle;
+    
+    // View Titles
     if(document.getElementById('ui-category-view-title')) document.getElementById('ui-category-view-title').innerText = t.categoryView;
     if(document.getElementById('ui-category-desc')) document.getElementById('ui-category-desc').innerText = t.categoryDesc;
     if(document.getElementById('ui-filter-label')) document.getElementById('ui-filter-label').innerText = t.filterBy;
     if(document.getElementById('ui-memos-title')) document.getElementById('ui-memos-title').innerText = t.memos;
     if(document.getElementById('ui-memos-desc')) document.getElementById('ui-memos-desc').innerText = t.memosDesc;
+    
     if(document.getElementById('ui-gdoc-title')) document.getElementById('ui-gdoc-title').innerText = t.gdocTitle;
     if(document.getElementById('ui-gdoc-sub')) document.getElementById('ui-gdoc-sub').innerText = t.gdocSub;
     if(document.getElementById('ui-gdoc-btn')) document.getElementById('ui-gdoc-btn').innerText = t.open;
+    
     if(document.getElementById('ui-reminders-label')) document.getElementById('ui-reminders-label').innerText = t.reminders;
     if(document.getElementById('ui-reminders-list')) document.getElementById('ui-reminders-list').innerHTML = t.remindersContent;
+    
     if(document.getElementById('ui-nav-journey')) document.getElementById('ui-nav-journey').innerText = t.journey;
     if(document.getElementById('ui-nav-category')) document.getElementById('ui-nav-category').innerText = t.category;
     if(document.getElementById('ui-nav-memos')) document.getElementById('ui-nav-memos').innerText = t.memos;
@@ -173,7 +197,7 @@ function updateUIStrings() {
     sel.value = currentVal;
 }
 
-// --- ADDING & REMOVING ---
+// --- Event Actions ---
 
 function openAddModal() {
     const modal = document.getElementById('add-modal');
@@ -189,9 +213,7 @@ function openAddModal() {
 function closeAddModal() {
     document.getElementById('add-modal').classList.add('hidden');
     const timeInput = document.getElementById('new-time');
-    const errorMsg = document.getElementById('time-error-msg');
     if(timeInput) timeInput.classList.remove('border-red-500', 'focus:ring-red-500');
-    if(errorMsg) errorMsg.classList.add('hidden');
 }
 
 function handleNewEvent(e) {
@@ -219,17 +241,12 @@ function handleNewEvent(e) {
         mapUrl: "" 
     };
 
-    // Update local data
     activeTripData[dayIdx].events.push(newEvent);
-
-    // --- 👇 SAVE TO CLOUD INSTEAD OF LOCALSTORAGE 👇 ---
     saveToCloud();
 
     closeAddModal();
     document.getElementById('add-event-form').reset();
     
-    // UI update will actually happen automatically via onSnapshot listener,
-    // but we can force it here for instant feedback locally
     if (dayIdx === currentDayIndex) showDay(currentDayIndex);
     else showDay(dayIdx);
 }
@@ -237,16 +254,11 @@ function handleNewEvent(e) {
 function deleteEvent(event, dayIdx, evtIdx) {
     event.stopPropagation();
     if (!confirm("Are you sure you want to delete this task?")) return;
-
     activeTripData[dayIdx].events.splice(evtIdx, 1);
-    
-    // --- 👇 SAVE TO CLOUD 👇 ---
     saveToCloud();
-
-    // UI updates automatically via listener
 }
 
-// --- RENDERING ---
+// --- Rendering ---
 
 function renderDateSelector() {
     const container = document.getElementById('date-scroll-container');
@@ -353,9 +365,7 @@ function renderCategory(category) {
         day.events.forEach((e, evtIdx) => {
             if (e.type === category) {
                 const t = translations[currentLang];
-                const mapBtn = e.mapUrl ? `...` : ''; // simplified for brevity, same as before
                 const shouldRenderSub = e.sub && e.sub !== "User Added";
-                // (Using same card HTML structure as previously provided)
                 items.push(`
                     <div class="bg-white p-5 rounded-3xl border border-gray-300 shadow-sm flex space-x-4 items-start fade-in relative group">
                         <button onclick="deleteEvent(event, ${dayIdx}, ${evtIdx})" class="absolute top-2 right-2 bg-red-50 text-red-500 rounded-full p-2 hover:bg-red-100 hover:scale-110 z-20 transition-all shadow-sm">

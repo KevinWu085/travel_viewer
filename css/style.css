@@ -13,8 +13,49 @@ body {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-.active-nav { color: var(--primary-color); }
-.active-nav div { transform: scale(1.1); }
+/* --- NAVIGATION STYLES (UPDATED) --- */
+
+/* Base state for active nav button */
+.active-nav { 
+    color: var(--primary-color); 
+    position: relative; /* Needed to position the underline */
+}
+
+/* Scale the icon slightly */
+.active-nav div { 
+    transform: scale(1.1); 
+    transition: transform 0.3s ease;
+}
+
+/* The Underline Indicator */
+.active-nav::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;        /* Push it slightly below the text */
+    left: 50%;           /* Center horizontally */
+    transform: translateX(-50%);
+    width: 24px;         /* Width of the line */
+    height: 3px;         /* Thickness of the line */
+    background-color: var(--primary-color);
+    border-radius: 99px; /* Rounded edges (pill shape) */
+    opacity: 0;
+    animation: floatUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes floatUp {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 5px); /* Start slightly lower */
+        width: 5px; /* Start as a dot */
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+        width: 24px; /* Expand to full width */
+    }
+}
+
+/* --- ANIMATIONS --- */
 
 .fade-in { animation: fadeIn 0.4s ease-out; }
 .slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
